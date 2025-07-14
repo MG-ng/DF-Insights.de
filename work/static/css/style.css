@@ -1,0 +1,156 @@
+/* Basic styling for your templates */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+.navbar {
+    background-color: #333;
+    color: white;
+    padding: 1rem 0;
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 2rem;
+}
+
+.nav-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    text-decoration: none;
+}
+
+.nav-menu {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-menu li {
+    margin-left: 2rem;
+}
+
+.nav-menu a {
+    color: white;
+    text-decoration: none;
+}
+
+.nav-menu a:hover {
+    color: #ddd;
+}
+
+.main-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.hero-section {
+    text-align: center;
+    padding: 3rem 0;
+    background-color: #f8f9fa;
+    margin-bottom: 3rem;
+}
+
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    /* top | right | bottom | left */
+    margin: 4rem 0 2rem 0;
+}
+
+.feature {
+    text-align: center;
+    padding: 2rem;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.footer {
+    background-color: #333;
+    color: white;
+    text-align: center;
+    padding: 2rem;
+    margin-top: 1rem;
+}
+
+.alert {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 5px;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    margin: 0.5rem;
+    font-weight: bold;
+}
+
+input.form-group,
+textarea.form-group {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+textarea.form-group {
+    height: 120px;
+    resize: vertical;
+}
+
+#container {
+    height: 400px;
+    min-width: 310px;
+}
+
+
+/*
+For the Tom Selection Groups
+*/
+.filter-selection .scientific {
+	font-weight: normal;
+	opacity: 0.3;
+	margin: 0 0 0 2px;
+}
+.filter-selection .scientific::before {
+	content: '(';
+}
+.filter-selection .scientific::after {
+	content: ')';
+}
+
+.ts-wrapper.select-cma {
+    width: 25rem;
+}
+
+/* Just overwrite width=100% to not take up so much empty space */
+.form-control, .form-select {
+    width: auto;
+    display: inline;
+}
+
+#container {
+    height: 600px;
+}

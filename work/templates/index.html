@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - My Website{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <h1>{{ message }}</h1>
+    <p>Here you can learn more about Dunkelflauten (dark doldrums).</p>
+    <a href="{{ url_for('about') }}" type="button" class="btn btn-outline-primary btn-lg">Learn More</a>
+</div>
+
+<div id="container"></div>
+
+<select id="select-filter" class="filter-selection" placeholder="Choose your data to be displayed"> </select>
+
+
+
+<script id="custom-script" filters="{{ filtersInverse }}" translation="{{ filtersTranslation }}"
+        resolution="{{ dataResolution }}"> </script>
+
+<div class="form-group mt-5">
+    <h3 class="form-label text-muted fw-bolder">Select filters for Centered Moving Average</h3>
+    <select id="select-cma" class="select-cma" placeholder="Choose your filters to be averaged"></select>
+    <div class="my-4">
+        <label id="label" for="period_input" class="text-muted align-middle m-2">Total Period to symmetrically mean average over</label>
+        <input id="period_input" name="period_input" type="range" class="align-middle m-2"
+               min="1" value="10" max="30" step="1" list="markers"> </input>
+        <span id="value" class="text-muted align-middle m-2">Number</span>
+        <button class="btn btn-primary m-2" onclick="cma_replacement()">Recalculate</button>
+    </div>
+</div>
+
+<hr>
+<!-- "The residual load is calculated automatically on SMARD and corresponds to the actual consumption
+        or grid load minus the generation from photovoltaic installations and wind power stations."
+        https://www.smard.de/en/204142-204142
+        "Auf SMARD wird die Residuallast berechnet als der Stromverbrauch,
+        abzüglich der Erzeugung von Photovoltaik- und Windkraftanlagen."
+        https://www.smard.de/page/home/wiki-article/446/2556/stromverbrauch
+        -->
+<div class="form-group mt-5">
+    <h3 class="form-label text-muted fw-bolder">Search for your Dunkelflauten Definition</h3>
+    <div class="my-2">
+        <label for="max_re_share" class="text-muted align-middle m-2">Maximum Share of Renewables</label>
+        <input id="max_re_share" name="max_re_share_input" type="number" class="align-middle m-2 form-control"
+                value=30 min=0 max=100> </input>
+        <span class="text-muted align-middle m-2"> % </span>
+    </div>
+    <div class="my-2">
+        <label for="min_duration" class="text-muted align-middle m-2">Minimum Duration</label>
+        <input id="min_duration" name="min_duration" type="number" class="align-middle m-2 form-control"
+                value=168 min=1 max=200> </input>
+        <span id="time_conversion" class="text-muted align-middle m-2"> x hours = y days = z weeks </span>
+        <select id="select_data_res" class="form-select" aria-label="Default select example">
+            <option selected>Select Data Resolution</option>
+            <option value="hour">Hour</option>
+            <option value="day">Day</option>
+            <option value="week">Week</option>
+        </select>
+        <button onclick="search_dunkelflaute()"
+                id="btn_search_dunkelflaute" class="btn btn-primary m-2" type="button"> Search </button>
+    </div>
+    <div class="my-2">
+    </div>
+</div>
+
+
+<datalist id="markers">
+  <option value="1"></option> <!-- 0 not possible because of range min=1 -->
+  <option value="10"></option>
+  <option value="20"></option>
+  <option value="30"></option>
+</datalist>
+<!-- Automatic Range Input Value Preview and automatic Hour in Days conversion -->
+<script>
+    const value = document.getElementById("value");
+    const input = document.getElementById("period_input");
+    var period = value.textContent = input.value;
+    input.addEventListener("input", (event) => {
+        period = event.target.value;
+        value.textContent = event.target.value });
+
+    const valueTimeConv = document.getElementById("time_conversion")
+    const inputMinDur = document.getElementById("min_duration")
+    const selectDataRes = document.getElementById("select_data_res")
+
+    function updateConversion() {
+        var hours = 0, days = 0, weeks = 0
+        var duration = parseInt(inputMinDur.value)
+        switch (selectDataRes.value) {
+            case "hour":
+                hours = duration
+                days = hours /24
+                weeks = days /7
+                break
+            case "day":
+                days = duration
+                hours = days *24
+                weeks = days /7
+                break
+            case "week":
+                weeks = duration
+                days = weeks *7
+                hours = days *24
+                break
+            default:
+                console.log( selectDataRes.value )
+        }
+        valueTimeConv.textContent = hours + " hours   =   "
+            + days.toFixed(2) + " days   =   " + weeks.toFixed(2) + " weeks"
+    }
+    updateConversion()
+    inputMinDur.addEventListener("input", () => updateConversion());
+    selectDataRes.addEventListener("change", () => updateConversion())
+
+
+</script>
+
+
+<script type="module" src="/static/js/setupHome.js"></script>
+<script type="module" src="/static/js/search_dunkelflaute.js"></script>
+<script type="module" src="/static/js/flask_variables.js"></script>
+
+{% endblock %}
