@@ -6,13 +6,12 @@ Time series URL:
 https://www.smard.de/app/chart_data/{FILTER}/{region}/{filterCopy}_{regionCopy}_{resolution}_{timestamp}.json
 # Request returns time series data by FILTER, region and time resolution from the specified timestamp.
 """
-import datetime
 import json
 
 from numpy.f2py.auxfuncs import throw_error
 from requests import get
-from work.Helper import FILTER, REGION_LIST
-from decimal import Decimal, getcontext
+from Helper import FILTER, REGION_LIST
+from decimal import getcontext
 
 # Set Decimal precision to 10 places
 getcontext().prec = 10

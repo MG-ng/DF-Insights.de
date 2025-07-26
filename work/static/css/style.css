@@ -121,7 +121,7 @@ textarea.form-group {
 }
 
 #container {
-    height: 400px;
+    height: 600px;
     min-width: 310px;
 }
 
@@ -140,17 +140,22 @@ For the Tom Selection Groups
 .filter-selection .scientific::after {
 	content: ')';
 }
+.filter {
+    display: inline-block;
+}
+#select-resolution {
+    min-width: 10rem;
+}
 
-.ts-wrapper.select-cma {
-    width: 25rem;
+.filter-selection {
+    min-width: 15rem;
+}
+.select-cma {
+    width: 20rem;
 }
 
 /* Just overwrite width=100% to not take up so much empty space */
 .form-control, .form-select {
     width: auto;
     display: inline;
-}
-
-#container {
-    height: 600px;
 }

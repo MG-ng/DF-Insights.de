@@ -1,7 +1,8 @@
 "use strict";
 
-import { filters, cma_options, reloadData, dataResolution } from "./flask_variables.js";
-export { selector, cma_selector, cma_replacement, dunkelflauteColor, Match, timeShares, unix_time_duration }
+import {toast} from "./script.js";
+import {filters, cma_options, reloadData, resolutions, translations} from "./flask_variables.js";
+export { selectorFilter, selectorRes, cma_selector, cma_replacement, dunkelflauteColor, Match, timeShares }
 
 var timeShares
 var dunkelflauteColor = "#DD224455"
@@ -37,6 +38,7 @@ Highcharts.getJSON('/api', function(data) {
     // und am Jahresende bilden. Dadurch liegt prinzipiell die Leistung in der ersten Jahreshälfte etwas zu hoch,
     // in der zweiten etwas zu niedrig.
 
+    var chartMinX = 0, chartMaxX = 0
     Highcharts.stockChart('container', {
         yAxis: [{ // Primary y-axis (index 0)
             title: {text: 'Prices (€/MWh)'},
@@ -53,18 +55,31 @@ Highcharts.getJSON('/api', function(data) {
             title: {text: 'Percentage'},  // Dimensionless 0-100% for residual generation share
             labels: {style: {color: '#00FF00'}},
             opposite: true // Places it on the right side
-        }
-        ],
+        }],
         xAxis: {
             title: {text: 'Date'},
             ordinal: false,
-            crosshair: true
+            crosshair: true,
+            events: {
+                afterSetExtremes: function(e) {
+                    var chartDurationDays = (this.max - this.min)/1000/60/60/24  // ms->s->m->h->d
+                    if( !selectorRes.getValue() ){
+                        // default case in the beginning, no resolution selected
+                    } else if( selectorRes.getValue() === selectorRes.options.quarterhour.value
+                                || selectorRes.getValue() === selectorRes.options.hour.value ) {
+                        if( chartDurationDays > 365*2 ) {
+                            selectorRes.setValue(selectorRes.options.day.value)
+                        }
+                        reloadData()
+                    }
+                }
+            }
         },
         rangeSelector: {
             selected: 4  // selects the zoom level index in the top left of the chart element
         },
         series: [{
-            name: "Share of Renewables on Total Load",
+            name: "Share_of_Renewable_Energies_Computed",
             data: timeShares,
             tooltip: { pointFormatter: function (fStr) {
                     // fStr = <span style="color:{point.color}">●</span> {series.name}: <b>{point.y}</b><br/>
@@ -162,7 +177,7 @@ Highcharts.getJSON('/api', function(data) {
 // console.log(  filters  )  // { filter-id: german-filter-name
 // console.log( translations )  // {german-filter-name: english-filter-name}
 
-var classes = [
+var filterClasses = [
     {
         value: 'price_EUR_MWh',
         label: 'Prices in EUR/MWh',
@@ -172,6 +187,11 @@ var classes = [
         value: 'elec_MWh',
         label: 'Electric Energy in MWh',
         label_scientific: 'Electricity during this given time resolution'
+    },
+    {
+        value: 'computed',
+        label: 'Virtual Computed Timeseries',
+        label_scientific: 'Various units depending on the calculation'
     }
 ]
 
@@ -179,96 +199,122 @@ var options = [];
 for (var filter in filters) {
     // console.log(filter, filters[filter])
     options.push({
-        class: filters[filter].includes("Marktpreis") ? classes[0].value : classes[1].value,
+        class: filters[filter].includes("Marktpreis") ? filterClasses[0].value :
+            filters[filter].includes("Computed") ? filterClasses[2].value :
+                filterClasses[1].value,
         value: filter,
-        label: filters[filter],
-        // label_scientific: "Science"
+        label: translations[filters[filter]],
+        label_scientific: filters[filter]
     })
 }
 
 // console.log(options)
-// console.log(classes)
+// console.log(filterClasses)
 
-    const selector = new TomSelect('#select-filter', {
-        create: false,           // No item creation at all
-        createOnBlur: false,     // Don't create when losing focus
-        allowEmptyOption: false, // Don't allow empty selections
-        maxItems: 10,            // Only allow single selection (optional)
-        onChange: reloadData(),
-
-        options: options,
-        optgroups: classes,
-        optgroupField: 'class',
-        labelField: 'label',
-        searchField: ['label'],
-        render: {
-            optgroup_header: function (data, escape) {
-                return '<div class="optgroup-header">' + escape(data.label) + ' <span class="scientific">' + escape(data.label_scientific) + '</span></div>';
-            }
-        }
-    });
-
-
-    /**
-     * Centered Mean Average Calculation
-     */
-    function cma_replacement () {
-        var chart = Highcharts.charts[0]
-        var cmaFilters = []
-        for (var selected_cma_index in cma_selector.items) {
-            var filterID = cma_selector.items[selected_cma_index]
-            console.log(filterID)
-            cmaFilters.push(filterID)
-        }
-
-        for (var seriesIndex in chart.series) {
-            // Example: var results = array.filter(function(x) { return x.ID == 3 });
-            var name = chart.series[seriesIndex]["name"]
-            if (cmaFilters.includes(name)) {
-                console.log("Found match: " + name)
-            } else {
-                if( cma_selector.options[name] ) {  // computed graph lines aren't in the selector
-                    chart.series[seriesIndex].setData(cma_selector.options[name].data)
-                }
-                continue
-            }
-            // Having trouble with this as this doesn't return the date (NaN and sometimes not all list entriess
-            // chart.series[seriesIndex].options.data  // list of objects with x and y attributes
-            console.log(cma_selector.options)
-            var timedValues = cma_selector.options[name].data  // list of objects with x and y attributes
-            var preservedValues = timedValues.slice()
-
-            console.log("timedValues")
-            console.log( timedValues )
-            console.log("Period: " + period)
-
-            // "To memorize this, remember that (a, b) => a - b sorts numbers in ascending order"
-            timedValues.sort( (a, b) => { return a[0]-b[0] })
-
-            var MOVINGWINDOW = timedValues.splice( 0, period )
-            const average = (array) => array.reduce((a, b) => a + b) / array.length;
-            var newShorterTime = []
-            var newTimedValue = timedValues.shift()
-
-            while( timedValues && timedValues.length && newTimedValue ) {
-                newShorterTime.push([ Math.round( average( MOVINGWINDOW.map( timedValue => {
-                    // console.log(timedValue)
-                    return timedValue[0]
-                } ) ) ), average( MOVINGWINDOW.map( timedValue => timedValue[1] ) ) ] )
-                // console.log("newShorterTime")
-                // console.log(newShorterTime)
-                // console.log("timedValues")
-                // console.log(timedValues)
-                MOVINGWINDOW.push( newTimedValue )
-                do{ newTimedValue = timedValues.shift() }
-                while( !newTimedValue && timedValues )
-                MOVINGWINDOW.shift()
-                // console.log(MOVINGWINDOW)
-            }
-            chart.series[seriesIndex].setData( newShorterTime )
-            cma_selector.options[name].data = preservedValues
+const selectorFilter = new TomSelect('#select-filter', {
+    create: false,           // No item creation at all
+    createOnBlur: false,     // Don't create when losing focus
+    allowEmptyOption: false, // Don't allow empty selections
+    maxItems: 10,            // Only allow single selection (optional)
+    onChange: reloadData(),
+    options: options,
+    optgroups: filterClasses,
+    optgroupField: 'class',
+    labelField: 'label',
+    searchField: ['label'],
+    render: {
+        optgroup_header: function (data, escape) {
+            return '<div class="optgroup-header">' + escape(data.label) + ' <span class="scientific">' + escape(data.label_scientific) + '</span></div>';
         }
     }
+})
+
+const selectorRes = new TomSelect('#select-resolution', {
+    create: false,           // No item creation at all
+    createOnBlur: false,     // Don't create when losing focus
+    allowEmptyOption: false, // Don't allow empty selections
+    maxItems: 1,            // Only allow single selection (optional)
+    onChange: reloadData(),
+    onDelete: function() {
+        // Prevent deletion if it would leave no items
+        if (this.items.length < 1) {
+            toast('You must have at least one selected item.');
+            return false; // Prevent deletion
+        }
+        return true;
+    },
+    options: resolutions.map( resolution => ({
+        value: resolution,
+        text: resolution.toUpperCase()
+    })),
+    onInitialize: function(){
+        if (!this.getValue() && this.options.day) {
+            this.addItem(this.options.day.value, true)  // Ensure at least one item is selected on initialization
+        }
+	}
+})
+
+
+/**
+ * Centered Mean Average Calculation
+ */
+function cma_replacement () {
+    var chart = Highcharts.charts[0]
+    var cmaFilters = []
+    for (var selected_cma_index in cma_selector.items) {
+        var filterID = cma_selector.items[selected_cma_index]
+        console.log(filterID)
+        cmaFilters.push(filterID)
+    }
+
+    for (var seriesIndex in chart.series) {
+        // Example: var results = array.filter(function(x) { return x.ID == 3 });
+        var name = chart.series[seriesIndex]["name"]
+        if (cmaFilters.includes(name)) {
+            console.log("Found match: " + name)
+        } else {
+            if( cma_selector.options[name] ) {  // computed graph lines aren't in the selector
+                chart.series[seriesIndex].setData(cma_selector.options[name].data)
+            }
+            continue
+        }
+        // Having trouble with this as this doesn't return the date (NaN and sometimes not all list entriess
+        // chart.series[seriesIndex].options.data  // list of objects with x and y attributes
+        console.log(cma_selector.options)
+        var timedValues = cma_selector.options[name].data  // list of objects with x and y attributes
+        var preservedValues = timedValues.slice()
+
+        console.log("timedValues")
+        console.log( timedValues )
+        console.log("Period: " + period)
+
+        // "To memorize this, remember that (a, b) => a - b sorts numbers in ascending order"
+        timedValues.sort( (a, b) => { return a[0]-b[0] })
+
+        var MOVINGWINDOW = timedValues.splice( 0, period )
+        const average = (array) => array.reduce((a, b) => a + b) / array.length;
+        var newShorterTime = []
+        var newTimedValue = timedValues.shift()
+
+        while( timedValues && timedValues.length && newTimedValue ) {
+            newShorterTime.push([ Math.round( average( MOVINGWINDOW.map( timedValue => {
+                // console.log(timedValue)
+                return timedValue[0]
+            } ) ) ), average( MOVINGWINDOW.map( timedValue => timedValue[1] ) ) ] )
+            // console.log("newShorterTime")
+            // console.log(newShorterTime)
+            // console.log("timedValues")
+            // console.log(timedValues)
+            MOVINGWINDOW.push( newTimedValue )
+            do{ newTimedValue = timedValues.shift() }
+            while( !newTimedValue && timedValues )
+            MOVINGWINDOW.shift()
+            // console.log(MOVINGWINDOW)
+        }
+        chart.series[seriesIndex].setData( newShorterTime )
+        cma_selector.options[name].data = preservedValues
+    }
+}
 
 
 const cma_selector = new TomSelect('#select-cma', {
@@ -277,7 +323,7 @@ const cma_selector = new TomSelect('#select-cma', {
     allowEmptyOption: false, // Don't allow empty selections
     maxItems: 10,            // Only allow single selection (optional)
     options: cma_options,
-    optgroups: classes,
+    optgroups: filterClasses,
     optgroupField: 'class',
     labelField: 'label',
     searchField: ['label'],
@@ -294,6 +340,7 @@ class Match {
         this.begin = begin
         this.end = end
         this.matchedShares = matchedShares
+        this.clientSearch = true
     }
     plotBand() {
         return {from: this.begin, to: this.end, color: dunkelflauteColor, id: "same"}  // for unified removal
@@ -304,23 +351,5 @@ class Match {
     }
 }
 
-
-function unix_time_duration(duration, resolution) {
-  let durationMs;
-  switch (resolution) {
-      case "hour":
-          durationMs = duration * 60 * 60 * 1000; // milliseconds in an hour
-          break;
-      case "day":
-          durationMs = duration * 24 * 60 * 60 * 1000; // milliseconds in a day
-          break;
-      case "week":
-          durationMs = duration * 7 * 24 * 60 * 60 * 1000; // milliseconds in a week
-          break;
-      default:
-          throw new Error("Invalid resolution. Must be 'hour', 'day', or 'week'.");
-  }
-  return durationMs;
-}
 
 

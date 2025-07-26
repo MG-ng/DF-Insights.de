@@ -10,13 +10,17 @@
 </div>
 
 <div id="container"></div>
-
-<select id="select-filter" class="filter-selection" placeholder="Choose your data to be displayed"> </select>
-
+<div id="selectors" style="display: inline-block">
+    <select id="select-resolution" class="filter filter-selection" placeholder="Select your data resolution"></select>
+    <select id="select-filter" class="filter filter-selection" placeholder="Choose your data to be displayed"> </select>
+</div>
 
 
 <script id="custom-script" filters="{{ filtersInverse }}" translation="{{ filtersTranslation }}"
-        resolution="{{ dataResolution }}"> </script>
+        resolution="{{ dataResolution }}" resolutions="{{ resolutions }}"> </script>
+
+<hr>
+<hr>
 
 <div class="form-group mt-5">
     <h3 class="form-label text-muted fw-bolder">Select filters for Centered Moving Average</h3>
@@ -30,6 +34,7 @@
     </div>
 </div>
 
+<hr>
 <hr>
 <!-- "The residual load is calculated automatically on SMARD and corresponds to the actual consumption
         or grid load minus the generation from photovoltaic installations and wind power stations."
@@ -51,7 +56,7 @@
         <input id="min_duration" name="min_duration" type="number" class="align-middle m-2 form-control"
                 value=168 min=1 max=200> </input>
         <span id="time_conversion" class="text-muted align-middle m-2"> x hours = y days = z weeks </span>
-        <select id="select_data_res" class="form-select" aria-label="Default select example">
+        <select id="search_select_data_res" class="form-select" aria-label="Default select example">
             <option selected>Select Data Resolution</option>
             <option value="hour">Hour</option>
             <option value="day">Day</option>
@@ -80,9 +85,9 @@
         period = event.target.value;
         value.textContent = event.target.value });
 
-    const valueTimeConv = document.getElementById("time_conversion")
     const inputMinDur = document.getElementById("min_duration")
-    const selectDataRes = document.getElementById("select_data_res")
+    const valueTimeConv = document.getElementById("time_conversion")
+    const selectDataRes = document.getElementById("search_select_data_res")
 
     function updateConversion() {
         var hours = 0, days = 0, weeks = 0

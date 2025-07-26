@@ -3,9 +3,9 @@ from decimal import getcontext
 
 from requests import get
 
-from Helper import REGION_LIST, FILTER, TABLE_NAME, DB_PARAMS, FLAG, Resolution, \
-    FilterTranslations, FilterTranslationsList
-from QuerySimple import get_all_rows, get_timestamp_buckets
+from Helper import FILTER, TABLE_NAME_SMARD, DB_PARAMS, FLAG, Resolution, \
+	FilterTranslationsList
+from QuerySimple import get_timestamp_buckets
 from databaseSetup import insert_optional_data_in_batches
 
 allFilters = list(FILTER.values())
@@ -13,15 +13,15 @@ getcontext().prec = 10
 baseURL = "https://www.smard.de/app"
 
 
-########################################################
-#### ATTENTION: THIS SCRIPT TAKES AT LEAST ONE HOUR ####
-########################################################
+#######################################################
+##### ATTENTION: THIS SCRIPT TAKES MULTIPLE HOURS #####
+#######################################################
 
 # First insert the rows with the Timestamps
 timestampedRows = []
 for resolutionEnum in Resolution:
     resolution = resolutionEnum.value
-    for region in REGION_LIST:
+    for region in ["DE"]:  # REGION_LIST:
         for filterIndex, currentFilter in enumerate( allFilters ):
             timestampOptions = get( f"{baseURL}/chart_data/{currentFilter}/{region}/index_{resolution}.json" )
             try:
@@ -49,7 +49,7 @@ for resolutionEnum in Resolution:
                     if tuple[1] == "None": continue
                     timestampedRows.append( (tuple[0], False, region, resolution, *[ None ] * 37) )
 
-            insert_optional_data_in_batches( DB_PARAMS, TABLE_NAME, timestampedRows, FilterTranslationsList[filterIndex] )
+            insert_optional_data_in_batches( DB_PARAMS, TABLE_NAME_SMARD, timestampedRows, FilterTranslationsList[filterIndex ] )
             timestampedRows = []
 
 
@@ -59,7 +59,7 @@ for resolutionEnum in Resolution:
 rowData = []
 for filterIndex, currentFilter in enumerate( allFilters ):
 
-    rows, column_names = get_timestamp_buckets( DB_PARAMS, TABLE_NAME, FilterTranslationsList[filterIndex] )
+    rows, column_names = get_timestamp_buckets( DB_PARAMS, TABLE_NAME_SMARD, FilterTranslationsList[filterIndex ] )
     tripleIDs = [ [row[0], row[1], row[2]] for row in rows ]  # [timestamp, region, resolution]
 
     for timestamp, region, resolution in tripleIDs :
@@ -71,7 +71,7 @@ for filterIndex, currentFilter in enumerate( allFilters ):
             rowData.append( (tuple[ 0 ], False, region, resolution,
                              *[None] * filterIndex, tuple[1], *[None] * (37-filterIndex-1) ) )
 
-        insert_optional_data_in_batches( DB_PARAMS, TABLE_NAME, rowData, FilterTranslationsList[filterIndex] )
+        insert_optional_data_in_batches( DB_PARAMS, TABLE_NAME_SMARD, rowData, FilterTranslationsList[filterIndex ] )
         rowData = []
 
 

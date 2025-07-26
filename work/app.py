@@ -1,9 +1,20 @@
+import decimal
 import json
-
-from flask import Flask, render_template, request
-from Helper import REGION_LIST, FILTER, TABLE_NAME, DB_PARAMS, FilterTranslationsList, FilterTranslations, FLAG
-from QueryComplex import get_smard_timeseries
+import numbers
 from decimal import Decimal
+from sys import float_repr_style
+
+# Switch from Highcharts to Plotly for future Graphs in commercial product because of Licensing!
+# Plotly is free, but bigger (3.5MB vs 385kB) => GZIP compression needed
+from flask import Flask, render_template, request
+from numpy.matlib import empty
+
+from Helper import REGION_LIST, FILTER, FilterTranslations, FLAG, Resolution, unix_time_duration
+# These imports crash if app.py is in a separate folder, not seeing psqlDatabase/
+from psqlDatabase.QueryComplex import get_smard_timeseries, get_timeseries
+from psqlDatabase.dunkelflauteSearch import get_dunkelflaute_matches
+
+## TODO: Change Server Configuration Path
 
 app = Flask(__name__)
 
@@ -14,40 +25,59 @@ def index():
                             message='Welcome to my website!',
                             filters=FILTER,
                             filtersInverse=json.dumps( dict(FILTER.inverse) ),
-                            filtersTranslation=json.dumps( dict(FilterTranslations)),
-                            dataResolution=json.dumps( 'day' ) )
+                            filtersTranslation=json.dumps( dict(FilterTranslations) ),
+                            dataResolution=json.dumps( 'day' ),
+                            resolutions = json.dumps( Resolution.values() ),
+                           )
 
 @app.route('/api')
 def api():
-    filters = request.args.getlist( 'filters', type = int )
+    filters = request.args.getlist( 'filters', type = int )  # filters contains the numeric ids
+    if len([id for id in filters if (id not in FILTER.values())]) != 0:
+        return "Data not available", 404
     if not filters:  # no get parameters = filters
         filters.append( FILTER[ FilterTranslations.inverse[ "Power_Consumption_Residual_load" ] ] )
         filters.append( FILTER[ FilterTranslations.inverse[ "Power_Consumption_Total" ] ] )
-    resolution = request.args.get( 'resolution', "day", type = str )
+    resolution = request.args.get( 'resolution', Resolution.DAY.value, type = str )
+    region = request.args.get( 'region', "DE", type = str )
+    if resolution not in Resolution.values() or region not in REGION_LIST:
+        return "Data not available", 404
+    start_ms = request.args.get( 'startTime', 1000000000000, type = int )  # 9. September 2001
+    end_ms = request.args.get( 'endTime', 2000000000000, type = int )  # 18. May 2033
+    if start_ms < 0 or end_ms <= 0 or start_ms > end_ms or end_ms > 2000000000000:
+        return "Data not available", 404
 
-    # TODO: sanitise the URL get parameters instead of Internal Server Error (KeyError) to keep avoiding SQL injection
-    filterNames = [ FilterTranslations[ FILTER.inverse[ id ] ] for id in filters  ]
-    rows, columns = get_smard_timeseries( resolution, filterNames )
+    chartDurationDays = (end_ms - start_ms)/1000/60/60/24  # ms->s->m->h->d
+    if resolution in [Resolution.HOUR.value, Resolution.QUARTERHOUR.value] and chartDurationDays > 365*2:
+        resolution = Resolution.DAY.value
 
-    # TypeError: Object of type Decimal is not JSON serializable
-    # But you know that the first 3 values are: unix_timestamp_ms, region, resolution
+    rows, columns = get_timeseries( region, resolution, filters, start_ms, end_ms )
+
+    if rows is None:
+        return {'ordering': [], 'default': {'resolution': None, 'region': None}, 'series': []}
     newRows = []
-    for i, row in enumerate( rows ):
+    # print( f"{rows =}" )
+    for row in rows:
         newRow = []
         newRow.append( row[0] )  # timestamp
 
         # High Chart needs more adjustments for correct string placements
         # newRow.append( row[1] )  # region
         # newRow.append( row[2] )  # resolution
-
-        row = row[ 3: ]
+        # TypeError: Object of type Decimal is not JSON serializable,
+        # But you know that the first 3 values are: unix_timestamp_ms, region, resolution
         containsContent = False
-        for value in row:
+        for value in row[3:]:
             if value is None or value == FLAG:
                 newRow.append( None )
-                continue
-            containsContent = True
-            newRow.append( float(value) )  # rounding errors are negligible
+            else:
+                containsContent = True
+                if isinstance( value, decimal.Decimal ):
+                    newRow.append( float(value) )  # rounding errors are negligible
+                else:
+                    print( f"{row = }" )
+                    print( f"{type(value) = }" )
+                    print( f"{value = }" )
 
         if containsContent:
             newRows.append( newRow )
@@ -55,7 +85,44 @@ def api():
     # Highcharts needs data to be sorted for performance reasons
     newRows.sort( key = lambda row: row[ 0 ] )
 
-    return {'ordering': columns, 'series': newRows}
+    return {'ordering': columns, 'default': {'resolution': resolution, 'region': region}, 'series': newRows}
+
+
+
+@app.route('/search')
+def search():
+    resolution = request.args.get( 'resolution', Resolution.DAY.value, type = str )
+    region = request.args.get( 'region', "DE", type = str )
+    if resolution not in Resolution.values() or region not in REGION_LIST:
+        return "Data not available", 404
+
+    start_ms = request.args.get( 'startTime', 1000000000000, type = int )  # 9. September 2001
+    end_ms = request.args.get( 'endTime', 2000000000000, type = int )  # 18. May 2033
+    if start_ms < 0 or end_ms <= 0 or start_ms > end_ms or end_ms > 2000000000000:
+        return "Data not available", 404
+
+    threshold = request.args.get( 'threshold', 0.3, type = float )  # 30%
+    unix_duration = request.args.get( 'unix_duration', unix_time_duration(1, Resolution.DAY), type = int )  # 1 day
+    if threshold < 0 or unix_duration < 0 or threshold > 1 or unix_duration > unix_time_duration(4, Resolution.WEEK):
+        return "Data not available", 404
+
+    print( "Looking for: ", resolution, region, threshold, unix_duration, start_ms, end_ms)
+
+    rows, columns = get_dunkelflaute_matches( region, resolution, threshold, unix_duration, start_ms, end_ms )
+    print( f"Dunkelflaute: {rows = } & {columns = }" )
+
+    if rows is None:
+        return {'ordering': [], 'default': {'resolution': None, 'region': None}, 'series': []}
+    newRows = []
+    for row in rows:
+        newRow = []
+        newRow.append( row[0] )  # start_time
+        # newRow.append( row[1] )  # region
+        # newRow.append( row[2] )  # resolution
+        newRow.append( row[3] )  # end_time
+        newRows.append( newRow )
+
+    return {'ordering': columns, 'default': {'resolution': resolution, 'region': region}, 'series': newRows}
 
 
 @app.route('/about')

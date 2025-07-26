@@ -1,11 +1,13 @@
 import psycopg2
 from psycopg2.extras import execute_batch
 import sys
-import os
 
-from Helper import FilterTranslations, TABLE_NAME, DB_PARAMS
+from Helper import FilterTranslations, TABLE_NAME_SMARD, DB_PARAMS, FILTER, COMPUTED_IDS
 
-numeric_columns = list( FilterTranslations.values() )
+
+allCols = list( FilterTranslations.values() )
+numeric_columns = [col for col in allCols if FILTER[FilterTranslations.inverse[col]] not in COMPUTED_IDS]
+# COMPUTED_IDS get inserted by computed by view SQL
 
 
 def create_table_with_schema( connection_params, table_name ):
@@ -156,15 +158,15 @@ if __name__ == "__main__":
     # Each row should have: unix_timestamp_ms + region + resolution + 37 numeric values
     sample_data = [
         # (unix_timestamp_ms, is_bucket_timestamp, region, resolution, filter-values)
-        (0, False, 'DE', 'hour', *[ None ] * 37),  # Fill remaining 37 columns with None (NULL)
+        (0, False, 'DE', 'hour', *[ None ] * 37),  # Fill the remaining 37 columns with None (NULL)
     ]
 
     # Step 1: Create the table
-    if create_table_with_schema( DB_PARAMS, TABLE_NAME ):
+    if create_table_with_schema( DB_PARAMS, TABLE_NAME_SMARD ):
         print( "Table creation completed successfully!" )
 
         # Step 2: Insert the sample data
-        if insert_optional_data_in_batches( DB_PARAMS, TABLE_NAME, sample_data, "unix_timestamp_ms" ):
+        if insert_optional_data_in_batches( DB_PARAMS, TABLE_NAME_SMARD, sample_data, "unix_timestamp_ms" ):
             print( "Data insertion completed successfully!" )
             print( "Operation completed successfully!" )
         else:
