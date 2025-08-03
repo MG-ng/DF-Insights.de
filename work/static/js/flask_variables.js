@@ -2,7 +2,7 @@
 
 import { randomHSL, toast, loadingToast } from "./script.js"
 import { selectorFilter, selectorRes, cma_selector } from "./setupHome.js"
-export { filters, translations, cma_options, reloadData, dataResolution, resolutions }
+export { filters, translations, cma_options, reloadData, dataResolution, resolutions, closeLoadingToast, toasts }
 
     var dataResolution = JSON.parse( document.getElementById('custom-script').getAttribute("resolution") )
     var resolutions = JSON.parse( document.getElementById('custom-script').getAttribute("resolutions") )
@@ -10,6 +10,11 @@ export { filters, translations, cma_options, reloadData, dataResolution, resolut
     var translations = JSON.parse( document.getElementById('custom-script').getAttribute("translation") )
     var cma_options = []
     var toasts = []
+
+var closeLoadingToast = function ( toast ) {
+    var elem = toast.toastElement.lastChild
+    elem.click.apply(elem)
+}
 
     var reloadData = function() {
         return function() {
@@ -40,9 +45,7 @@ export { filters, translations, cma_options, reloadData, dataResolution, resolut
             fetch( '/api?filters=' + filter_names_url + "&resolution=" + selectorRes.items[0] + cut4Speed )
                 .then(response => {
                     console.log("API URL: " + response.url)
-                    // Close Loading Toast
-                    var elem = toasts.pop().toastElement.lastChild
-                    elem.click.apply(elem)
+                    closeLoadingToast(toasts.pop())
 
                     try {
                         var data = response.json()
@@ -57,7 +60,7 @@ export { filters, translations, cma_options, reloadData, dataResolution, resolut
                     var dbData = data['series']
                     // Clear all existing series first
                     while(chart.series.length >= 1) {
-                        chart.series[0].remove();
+                        chart.series[0].remove()
                     }
                     // console.log(`DATA:`)
                     // console.log(data)
@@ -68,19 +71,21 @@ export { filters, translations, cma_options, reloadData, dataResolution, resolut
                     var innerLength = dbData[0].length  // Number of columns
                     console.log(`innerLength: ${innerLength}` )
                     for (let i = 1; i < innerLength; i++) {
-                        //
-                        const newList = dbData.map( innerList => [ innerList[0], innerList[i] ] );
+                        // duplicate the timestamp to each series (innerList[0])
+                        const newList = dbData.map( innerList => [ innerList[0], innerList[i] ] )
                         chart.addSeries({
+                            id: ordering[i+2],
                             name: ordering[i+2],
                             data: newList,
-                            yAxis: ordering[i+2].toLowerCase().includes("price") ? 0 : 1,
+                            yAxis: ordering[i+2].toLowerCase().includes("price") ? 0 :   // TODO: Enhance Logic and correctness
+                                ordering[i+2].includes("Share") || ordering[i+2].includes("Rel") ? 2 :1,
                             color: randomHSL()
                         })
                         cma_selector.addOption({
                             name: ordering[i+2],
                             value: ordering[i+2],
                             data: newList,
-                            class:ordering[i+2].toLowerCase().includes("price") ? 0 : 1,
+                            class: ordering[i+2].toLowerCase().includes("price") ? 0 : 1,
                             label: ordering[i+2]
                         })
 

@@ -40,7 +40,7 @@ function toast(message) {
             position: "center", // `left`, `center` or `right`
             stopOnFocus: true, // Prevents dismissing of toast on hover
             style: {
-                background: "linear-gradient(to right, #00b09b, #96c93d)",
+                background: "linear-gradient(to right, #49FCAF, #0D6EFD)",
             },
             onClick: function(){} // Callback after click
         }).showToast();
@@ -49,14 +49,14 @@ function toast(message) {
 
 function loadingToast() {
     return Toastify({
-        text: "Data is loading...",
+        text: " Data is loading... ",
         duration: -1,
         close: true,
         gravity: "bottom", // `top` or `bottom`
         position: "center", // `left`, `center` or `right`
-        avatar: "https://icon-library.com/images/spinner-icon-gif/spinner-icon-gif-23.jpg",
+        avatar: "/static/images/loading/6dotsLoading.gif",
         style: {
-            background: "linear-gradient(to right, #188EEA, #2AA9EF)",
+            background: "linear-gradient(to right, #49FCAF, #0D6EFD)",
         },
         onClick: function(){} // Callback after click
     })

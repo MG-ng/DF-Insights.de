@@ -5,17 +5,17 @@ import {filters, cma_options, reloadData, resolutions, translations} from "./fla
 export { selectorFilter, selectorRes, cma_selector, cma_replacement, dunkelflauteColor, Match, timeShares }
 
 var timeShares
-var dunkelflauteColor = "#DD224455"
+var dunkelflauteColor = "#DD224422"
 window.cma_replacement = cma_replacement
 
 Highcharts.getJSON('/api', function(data) {
     var grid_load = data['series'].map(triple => {
         return [triple[0], triple[2]]
     })
-    // Calculating a virtual percentage/share line of (wind+solar) on total demand if resLoad + gridLoad are available
+    // Calculating a virtual percentage/max_share line of (wind+solar) on total demand if resLoad + gridLoad are available
     if( data['ordering'][3] === 'power_consumption_residual_load'
         && data['ordering'][4] === 'power_consumption_total' ) {
-        console.log("Drawing computed percentage/share line of (wind+solar)")
+        console.log("Drawing computed percentage/max_share line of (wind+solar)")
 
         timeShares = data['series'].map(triple => {
             return [triple[0], 1- (triple[1] / triple[2])]
@@ -52,7 +52,7 @@ Highcharts.getJSON('/api', function(data) {
             visible: true,
             opposite: true // Places it on the right side
         }, {// Third y-axis (index 2)
-            title: {text: 'Percentage'},  // Dimensionless 0-100% for residual generation share
+            title: {text: 'Percentage'},  // Dimensionless 0-100% for residual generation max_share
             labels: {style: {color: '#00FF00'}},
             opposite: true // Places it on the right side
         }],
@@ -198,7 +198,7 @@ var filterClasses = [
 var options = [];
 for (var filter in filters) {
     // console.log(filter, filters[filter])
-    options.push({
+    options.push({  // TODO: Enhance logic
         class: filters[filter].includes("Marktpreis") ? filterClasses[0].value :
             filters[filter].includes("Computed") ? filterClasses[2].value :
                 filterClasses[1].value,
@@ -260,12 +260,14 @@ const selectorRes = new TomSelect('#select-resolution', {
  */
 function cma_replacement () {
     var chart = Highcharts.charts[0]
+    var cmaFiltersNew = cma_selector.items.map(item => {return })
     var cmaFilters = []
     for (var selected_cma_index in cma_selector.items) {
         var filterID = cma_selector.items[selected_cma_index]
         console.log(filterID)
         cmaFilters.push(filterID)
     }
+    if(cmaFilters.length === 0) { toast(" No timeseries to smooth selected! "); return; }
 
     for (var seriesIndex in chart.series) {
         // Example: var results = array.filter(function(x) { return x.ID == 3 });
@@ -278,7 +280,7 @@ function cma_replacement () {
             }
             continue
         }
-        // Having trouble with this as this doesn't return the date (NaN and sometimes not all list entriess
+        // Having trouble with this as this doesn't return the date (NaN and sometimes not all list entries
         // chart.series[seriesIndex].options.data  // list of objects with x and y attributes
         console.log(cma_selector.options)
         var timedValues = cma_selector.options[name].data  // list of objects with x and y attributes

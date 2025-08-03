@@ -1,3 +1,5 @@
+import time
+
 import psycopg2
 from Helper import (TABLE_NAME_SMARD, DB_PARAMS, FILTER, FilterTranslations, COMPUTED_IDS,
                     VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE)
@@ -22,7 +24,7 @@ def get_timeseries( region, resolution, filter_ids, start_ms, end_ms ):
     if len(filterIdsComputed) == 0:
         return smardResult
 
-    rows = merge(smardResult, viewResult)
+    rows = merge(smardResult, viewResult)  # len(viewResult[1])  # ERROR: TypeError: object of type 'NoneType' has no len()
     cols = smardResult[1][:3] + filter_names_smard + filter_names_views
     return rows, cols
 
@@ -44,7 +46,7 @@ def get_smard_timeseries( region, resolution, filter_names, start_ms, end_ms ):
                         f"WHERE region = '{region}' "
                         f"AND resolution = '{resolution}' "
                         f"AND unix_timestamp_ms >= {start_ms} "
-                        f"AND unix_timestamp_ms <= {end_ms} " )
+                        f"AND unix_timestamp_ms <= {end_ms}; " )
         rows = cursor.fetchall()
 
         column_names = [ desc[ 0 ] for desc in cursor.description ]
@@ -65,16 +67,29 @@ def get_computed_timeseries( region, resolution, filter_names, start_ms, end_ms 
         conn = psycopg2.connect( **DB_PARAMS )
         cursor = conn.cursor()
 
+        cursor.execute( f"""
+                        WITH filled_primary_keys AS (
+                            SELECT *,
+                                   CASE
+                                       WHEN pct.unix_timestamp_ms IS NULL THEN rsett.unix_timestamp_ms
+                                       ELSE pct.unix_timestamp_ms END AS unix_timestamp_ms_filled,
+                                   CASE
+                                       WHEN pct.region IS NULL THEN rsett.region
+                                       ELSE pct.region END AS region_filled,
+                                   CASE
+                                       WHEN pct.resolution IS NULL THEN rsett.resolution
+                                       ELSE pct.resolution END AS resolution_filled
+                                FROM {VIEW_NAME_PRICE_CHANGE} pct
+                                         NATURAL FULL JOIN {VIEW_NAME_RE_SHARE_EXT_TRADE} rsett)
+                        SELECT t.unix_timestamp_ms_filled, t.region_filled, t.resolution_filled, {", ".join(filter_names)}
+                            FROM filled_primary_keys t
+                            WHERE region = '{region}'
+                            AND resolution = '{resolution}'
+                            AND t.unix_timestamp_ms_filled >= {start_ms}
+                            AND t.unix_timestamp_ms_filled <= {end_ms}
+                            ORDER BY t.unix_timestamp_ms_filled;
+                        """)
 
-        cursor.execute( f"SELECT pct.unix_timestamp_ms, pct.region, pct.resolution, {", ".join(filter_names)} "
-                        f"FROM {VIEW_NAME_PRICE_CHANGE} pct, {VIEW_NAME_RE_SHARE_EXT_TRADE} rsett "  # list all views
-                        f"WHERE pct.region = '{region}' "
-                        f"AND pct.resolution = '{resolution}' "
-                        f"AND pct.unix_timestamp_ms >= {start_ms} "
-                        f"AND pct.unix_timestamp_ms <= {end_ms} "
-                        f"AND (pct.unix_timestamp_ms = rsett.unix_timestamp_ms "
-                        f"AND pct.region = rsett.region "
-                        f"AND pct.resolution = rsett.resolution) " )
         rows = cursor.fetchall()
 
         column_names = [ desc[ 0 ] for desc in cursor.description ]
@@ -93,16 +108,17 @@ def get_computed_timeseries( region, resolution, filter_names, start_ms, end_ms 
 def merge(smardResult, viewResult):
     smardDict, viewDict, mergedDict = {}, {}, {}
     smardRowDataWidth = len(smardResult[1]) - 3
-    viewsRowDataWidth = len(viewResult[1]) - 3
+    viewsRowDataWidth = len(viewResult[1]) - 3  # ERROR: TypeError: object of type 'NoneType' has no len()
     for row in smardResult[0]:
         smardDict[tuple(row[:3])] = row[3:]
     for row in viewResult[0]:
         viewDict[tuple(row[:3])] = row[3:]
 
+    print("smardDict.items() at " + str(time.time()))
     for key, value in smardDict.items():
-        mergedDict[ key ] = value + viewDict.get( key, tuple([None]*viewsRowDataWidth) )
+        mergedDict[ key ] = value + viewDict.get( key, tuple( [None]*viewsRowDataWidth) )
     for key, value in viewDict.items():
-        mergedDict[ key ] = smardDict.get( key, tuple([None]*smardRowDataWidth) ) + value
+        mergedDict[ key ] = smardDict.get( key, tuple( [None]*smardRowDataWidth) ) + value
 
     rows = []
     for key, value in mergedDict.items():

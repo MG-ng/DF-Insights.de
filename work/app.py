@@ -12,7 +12,7 @@ from numpy.matlib import empty
 from Helper import REGION_LIST, FILTER, FilterTranslations, FLAG, Resolution, unix_time_duration
 # These imports crash if app.py is in a separate folder, not seeing psqlDatabase/
 from psqlDatabase.QueryComplex import get_smard_timeseries, get_timeseries
-from psqlDatabase.dunkelflauteSearch import get_dunkelflaute_matches
+from psqlDatabase.dunkelflauteSearch import get_dunkelflaute_matches, get_dunkelflaute_timeseries
 
 ## TODO: Change Server Configuration Path
 
@@ -75,8 +75,8 @@ def api():
                 if isinstance( value, decimal.Decimal ):
                     newRow.append( float(value) )  # rounding errors are negligible
                 else:
-                    print( f"{row = }" )
-                    print( f"{type(value) = }" )
+                    print( f"ERROR with: {row = }" )
+                    print( f"UNKNOWN TYPE: {type(value) = }" )
                     print( f"{value = }" )
 
         if containsContent:
@@ -101,18 +101,18 @@ def search():
     if start_ms < 0 or end_ms <= 0 or start_ms > end_ms or end_ms > 2000000000000:
         return "Data not available", 404
 
-    threshold = request.args.get( 'threshold', 0.3, type = float )  # 30%
-    unix_duration = request.args.get( 'unix_duration', unix_time_duration(1, Resolution.DAY), type = int )  # 1 day
+    threshold = request.args.get( 'maxShare', 0.3, type = float )  # 30%
+    unix_duration = request.args.get( 'min_duration_ms', unix_time_duration(1, Resolution.DAY), type = int )  # 1 day
     if threshold < 0 or unix_duration < 0 or threshold > 1 or unix_duration > unix_time_duration(4, Resolution.WEEK):
         return "Data not available", 404
 
-    print( "Looking for: ", resolution, region, threshold, unix_duration, start_ms, end_ms)
+    print( "Matches for: ", resolution, region, threshold, unix_duration, start_ms, end_ms)
 
     rows, columns = get_dunkelflaute_matches( region, resolution, threshold, unix_duration, start_ms, end_ms )
-    print( f"Dunkelflaute: {rows = } & {columns = }" )
+    # print( f"Dunkelflaute: {rows = } & {columns = }" )
 
     if rows is None:
-        return {'ordering': [], 'default': {'resolution': None, 'region': None}, 'series': []}
+        return { 'ordering': [], 'default': {'resolution': None, 'region': None}, 'series': [] }
     newRows = []
     for row in rows:
         newRow = []
@@ -122,7 +122,33 @@ def search():
         newRow.append( row[3] )  # end_time
         newRows.append( newRow )
 
-    return {'ordering': columns, 'default': {'resolution': resolution, 'region': region}, 'series': newRows}
+    return { 'ordering': columns, 'default': {'resolution': resolution, 'region': region}, 'series': newRows }
+
+
+@app.route('/trend')
+def trend():
+    resolution = request.args.get( 'resolution', Resolution.DAY.value, type = str )
+    region = request.args.get( 'region', "DE", type = str )
+    if resolution not in Resolution.values() or region not in REGION_LIST:
+        return "Data not available", 404
+
+    start_ms = request.args.get( 'startTime', 1000000000000, type = int )  # 9. September 2001
+    end_ms = request.args.get( 'endTime', 2000000000000, type = int )  # 18. May 2033
+    if start_ms < 0 or end_ms <= 0 or start_ms > end_ms or end_ms > 2000000000000:
+        return "Data not available", 404
+
+    threshold = request.args.get( 'maxShare', 0.3, type = float )  # 30%
+    unix_duration = request.args.get( 'min_duration_ms', unix_time_duration(1, Resolution.DAY), type = int )  # 1 day
+    if threshold < 0 or unix_duration < 0 or threshold > 1 or unix_duration > unix_time_duration(4, Resolution.WEEK):
+        return "Data not available", 404
+
+    print( "Trendline for: ", resolution, region, threshold, unix_duration, start_ms, end_ms)
+
+    rows, columns = get_dunkelflaute_timeseries( region, resolution, threshold, unix_duration, start_ms, end_ms )
+    if rows is None:
+        return { 'ordering': [], 'default': {'resolution': None, 'region': None}, 'series': [] }
+    # newRows.sort( key = lambda row: row[ 0 ] )  # Already sorted using SQL
+    return {'ordering': columns, 'default': {'resolution': resolution, 'region': region}, 'series': rows}
 
 
 @app.route('/about')

@@ -140,18 +140,17 @@ For the Tom Selection Groups
 .filter-selection .scientific::after {
 	content: ')';
 }
-.filter {
+.selection {
     display: inline-block;
 }
-#select-resolution {
+.resolution-selection {
     min-width: 10rem;
 }
-
 .filter-selection {
-    min-width: 15rem;
+    min-width: 20rem;
 }
 .select-cma {
-    width: 20rem;
+    min-width: 20rem;
 }
 
 /* Just overwrite width=100% to not take up so much empty space */
@@ -159,3 +158,4 @@ For the Tom Selection Groups
     width: auto;
     display: inline;
 }
+

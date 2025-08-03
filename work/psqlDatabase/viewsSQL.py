@@ -1,10 +1,9 @@
 
 from Helper import FilterTranslations, TABLE_NAME_SMARD, FILTER, RE_SHARE_ID, ELEC_IMPORT_ID, \
-        ELEC_PRICE_CHANGE_ABS_ID, ELEC_PRICE_CHANGE_REL_ID
-
+        ELEC_PRICE_CHANGE_ABS_ID, ELEC_PRICE_CHANGE_REL_ID, VIEW_NAME_RE_SHARE_EXT_TRADE
 
 # Share of the renewable load as a test for the postgresql view
-## Calculating a virtual percentage/share line of (wind+solar) on total demand if resLoad + gridLoad are available
+## Calculating a virtual percentage/max_share line of (wind+solar) on total demand if resLoad + gridLoad are available
 # TODO: Fix not forecasted electricity import
 re_share_import_view_sql = f"""
         SELECT  t.unix_timestamp_ms, t.region, t.resolution,
@@ -21,7 +20,7 @@ re_share_import_view_sql = f"""
             AS import_to_fix, 
             (t.power_consumption_total - t.production_forecast_total)::DECIMAL(11, 2) 
             AS {FilterTranslations[FILTER.inverse[ELEC_IMPORT_ID]]}
-        FROM (
+        FROM ( 
             SELECT *, ( 
                 electricity_production_conventional + electricity_production_renewables + electricity_production_wind_offshore +
                 electricity_production_hydropower + 
@@ -29,11 +28,11 @@ re_share_import_view_sql = f"""
                 electricity_production_pumped_storage 
             )::DECIMAL(12, 2) AS total_production 
             FROM {TABLE_NAME_SMARD} d
-            ORDER BY unix_timestamp_ms DESC 
+            ORDER BY unix_timestamp_ms ASC 
              ) t
         WHERE t.power_consumption_residual_load is not null 
                 and t.power_consumption_total is not null
-                and t.power_consumption_total != 0
+                and t.power_consumption_total != 0;
         """
 
 
@@ -70,5 +69,5 @@ WHERE current_price IS NOT NULL
           WHEN 'week' THEN unix_timestamp_ms - last_time = 1000 * 60 * 15 * 4 * 24 * 7
           ELSE FALSE
     END
-ORDER BY region, unix_timestamp_ms
+ORDER BY region, unix_timestamp_ms;
 """
