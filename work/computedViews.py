@@ -1,8 +1,8 @@
 import psycopg2
 import sys
 
-from Helper import DB_PARAMS, VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE
-from viewsSQL import re_share_import_view_sql, price_change_view_sql
+from Helper import DB_PARAMS, VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE, VIEW_NAME_DUNKELFLAUTEN_STATS
+from psqlDatabase.viewsSQL import dunkelflauten_stats_view_sql, re_share_import_view_sql, price_change_view_sql
 
 
 
@@ -43,12 +43,24 @@ def create_computed_view( connection_params, computed_view_name, view_sql ):
         cursor.execute( create_view_sql )
         conn.commit()
         print( "Created View successfully" )
-        cursor.execute( f"""
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_{computed_view_name}_unique
-            ON {computed_view_name} (unix_timestamp_ms, region, resolution);
-        """ )
-        conn.commit()
-        print( "Created unique index on View successfully" )
+
+        try:
+            cursor.execute( f"""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_{computed_view_name}_unique
+                ON {computed_view_name} (unix_timestamp_ms, region, resolution);
+            """ )
+            conn.commit()
+        except psycopg2.Error as e:
+            if str(e) == 'column "unix_timestamp_ms" does not exist':  # creating enriched dunkelflaute stats
+                cursor.execute( f"""
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_{computed_view_name}_unique_start_time
+                    ON {computed_view_name} (start_time);
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_{computed_view_name}_unique_duration
+                    ON {computed_view_name} (duration);
+                """ )
+                conn.commit()
+        finally:
+            print( "Created unique index on View successfully" )
 
         # CONCURRENTLY resulted in: CONCURRENTLY cannot be used when the materialized view is not populated
         # cursor.execute( f"""
@@ -84,11 +96,24 @@ def create_computed_view( connection_params, computed_view_name, view_sql ):
 if __name__ == "__main__":
 
     for view_name, sql in [(VIEW_NAME_RE_SHARE_EXT_TRADE, re_share_import_view_sql),
-                      [VIEW_NAME_PRICE_CHANGE, price_change_view_sql]]:
+                           [VIEW_NAME_PRICE_CHANGE, price_change_view_sql],
+                           [VIEW_NAME_DUNKELFLAUTEN_STATS, None]]:
 
-        if create_computed_view( DB_PARAMS, view_name, sql ):
-            print( f"{view_name} creation completed successfully!" )
+        if sql is None:
+            for threshold in [ 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55 ]:
+
+                sql = dunkelflauten_stats_view_sql(threshold)
+                currentViewName = view_name + str(int(round( threshold*100 )))
+                if create_computed_view( DB_PARAMS, currentViewName, sql ):
+                    print( f"{currentViewName} creation completed successfully!" )
+                else:
+                    print( "View creation failed!" )
+                    sys.exit( 1 )
 
         else:
-            print( "View creation failed!" )
-            sys.exit( 1 )
+            if create_computed_view( DB_PARAMS, view_name, sql ):
+                print( f"{view_name} creation completed successfully!" )
+            else:
+                print( "View creation failed!" )
+                sys.exit( 1 )
+

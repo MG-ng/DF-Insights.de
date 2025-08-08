@@ -74,11 +74,6 @@
 <hr>
 <hr>
 
-<div class="form-group mt-5">
-    <h3 class="form-label text-muted fw-bolder">How Dunkelflauten Behave</h3>
-    <div id="bubble-chart-container"></div>
-</div>
-
 <datalist id="markers">
   <option value="1"></option> <!-- 0 not possible because of range min=1 -->
   <option value="10"></option>
@@ -127,12 +122,55 @@
     inputMinDur.addEventListener("input", () => updateConversion());
     selectDataRes.addEventListener("change", () => updateConversion())
 
-
+    console.log("Executing inline Script…")
 </script>
 
 
+
+
+<div class="bubble-section">
+    <h3 class="form-label text-muted fw-bolder">How Dunkelflauten Behave</h3>
+    <div id="bubble-chart-container"></div>
+    <div class="controls">
+        <div class="control-group">
+            <label for="tableSelect">Select Table:</label>
+            <select id="tableSelect">
+                <option value="computed_data_dunkelflauten_enriched20">Less Than 20% Renewables</option>
+                <option value="computed_data_dunkelflauten_enriched25">Less Than 25% Renewables</option>
+                <option value="computed_data_dunkelflauten_enriched30" selected>Less Than 30% Renewables</option>
+                <option value="computed_data_dunkelflauten_enriched35">Less Than 35% Renewables</option>
+                <option value="computed_data_dunkelflauten_enriched40">Less Than 40% Renewables</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="xAxisSelect">X-Axis Column:</label>
+            <select id="xAxisSelect"></select>
+        </div>
+
+        <div class="control-group">
+            <label for="yAxisSelect">Y-Axis Column:</label>
+            <select id="yAxisSelect"></select>
+        </div>
+
+        <div class="control-group">
+            <label for="sizeSelect">Bubble Size Column:</label>
+            <select id="sizeSelect"></select>
+        </div>
+
+        <div class="control-group">
+            <label for="colorSelect">Bubble Color Column:</label>
+            <select id="colorSelect"></select>
+        </div>
+    </div>
+
+</div>
+
+
+
 <script type="module" src="/static/js/setupHome.js"></script>
-<script type="module" src="/static/js/search_dunkelflaute.js"></script>
 <script type="module" src="/static/js/flask_variables.js"></script>
+<script type="module" src="/static/js/search_dunkelflaute.js"></script>
+<script type="module" src="/static/js/dunkelflautenStats.js"></script>
+
 
 {% endblock %}

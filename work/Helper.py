@@ -4,8 +4,13 @@ from enum import Enum, unique
 
 
 TABLE_NAME_SMARD = 'smard_data_collection'
+# Der Baustein Gesamt (Netzlast) resultiert aus der Nettostromerzeugung, abzüglich Export-Übertragungsleistung,
+# zuzüglich Import-Übertragungsleistung und abzüglich der Einspeicherleistung von Pumpspeicherkraftwerken
+# – Datenlieferung erfolgt mit spätestens einer Stunde Verzögerung [Quelle: ENTSO-E].
+# Die Residuallast ist definiert als die Netzlast, abzüglich der Einspeisung von Photovoltaik-, Wind Onshore- und Wind Offshore-Anlagen.
 VIEW_NAME_RE_SHARE_EXT_TRADE = 'computed_data_re_share_and_external_trade'
 VIEW_NAME_PRICE_CHANGE = 'computed_data_price_change_ger_lux'
+VIEW_NAME_DUNKELFLAUTEN_STATS = 'computed_data_dunkelflauten_enriched'
 FLAG = -1e8
 
 # Reading from environment variable
@@ -22,14 +27,16 @@ DB_PARAMS = {
     'port': 5432
 }
 
-COMPUTED_IDS = {1, 2, 3, 4, 5}
+COMPUTED_IDS = {1, 2, 3, 4, 5, 6}
 # KEEP SPECIFIC IDS IN REGARD TO THEIR MEANING, they're used in the DB setup
 RE_SHARE_ID = 1
+WIND_SOLAR_ID = 6
 ELEC_IMPORT_ID = 2
 ELEC_EXPORT_ID = 3
 ELEC_PRICE_CHANGE_ABS_ID = 4
 ELEC_PRICE_CHANGE_REL_ID = 5
 FILTER = {
+    "Anteil Photovoltaik-, Wind Onshore- und Wind (Computed)": WIND_SOLAR_ID,
     "Anteil erneuerbarer Energien (Computed)": RE_SHARE_ID,
     "Importierter Strom (Computed)": ELEC_IMPORT_ID,
     "Exportierter Strom (Computed)": ELEC_EXPORT_ID,
@@ -78,6 +85,7 @@ FILTER = bidict(FILTER)
 
 
 FilterTranslationsList = [
+    "Share_of_Photovoltaic_Wind_onshore_offshore_Computed",
     "Share_of_Renewable_Energies_Computed",
     "Imported_Electricity_Computed",
     "Exported_Electricity_Computed",

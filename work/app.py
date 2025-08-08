@@ -12,7 +12,8 @@ from numpy.matlib import empty
 from Helper import REGION_LIST, FILTER, FilterTranslations, FLAG, Resolution, unix_time_duration
 # These imports crash if app.py is in a separate folder, not seeing psqlDatabase/
 from psqlDatabase.QueryComplex import get_smard_timeseries, get_timeseries
-from psqlDatabase.dunkelflauteSearch import get_dunkelflaute_matches, get_dunkelflaute_timeseries
+from psqlDatabase.dunkelflauteSearch import get_dunkelflaute_matches, get_dunkelflaute_timeseries, \
+    getEnrichedDunkelflauten
 
 ## TODO: Change Server Configuration Path
 
@@ -91,8 +92,8 @@ def api():
 
 @app.route('/search')
 def search():
-    resolution = request.args.get( 'resolution', Resolution.DAY.value, type = str )
     region = request.args.get( 'region', "DE", type = str )
+    resolution = request.args.get( 'resolution', Resolution.DAY.value, type = str )
     if resolution not in Resolution.values() or region not in REGION_LIST:
         return "Data not available", 404
 
@@ -149,6 +150,17 @@ def trend():
         return { 'ordering': [], 'default': {'resolution': None, 'region': None}, 'series': [] }
     # newRows.sort( key = lambda row: row[ 0 ] )  # Already sorted using SQL
     return {'ordering': columns, 'default': {'resolution': resolution, 'region': region}, 'series': rows}
+
+
+@app.route('/enrichedDF')
+def enrichedDF():
+    tableName = request.args.get( 'tableName', "computed_data_dunkelflauten_enriched30", type = str )
+    if tableName not in ["computed_data_dunkelflauten_enriched" + str(percent) for percent in
+                         [15, 20, 25, 30, 35, 40, 45, 50, 55]]:
+        return "Data not available", 404
+    rows, columns = getEnrichedDunkelflauten( tableName )
+
+    return {'ordering': columns, 'series': rows}
 
 
 @app.route('/about')

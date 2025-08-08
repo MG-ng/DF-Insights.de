@@ -3,6 +3,9 @@
 
 export { randomHSL, toast, loadingToast, unix_time_duration }
 
+console.log("Executing script.js……")
+
+
 /*
 export { variable1 as name1, variable2 as name2, …, nameN };
 import { export1, export2 } from "module-name";

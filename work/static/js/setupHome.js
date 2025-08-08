@@ -2,11 +2,15 @@
 
 import {toast} from "./script.js";
 import {filters, cma_options, reloadData, resolutions, translations} from "./flask_variables.js";
-export { selectorFilter, selectorRes, cma_selector, cma_replacement, dunkelflauteColor, Match, timeShares }
+export { timeChart, selectorFilter, selectorRes, cma_selector, cma_replacement, dunkelflauteColor, Match, timeShares }
 
+let timeChart
 var timeShares
 var dunkelflauteColor = "#DD224422"
 window.cma_replacement = cma_replacement
+
+console.log("Executing Setup Home……")
+
 
 Highcharts.getJSON('/api', function(data) {
     var grid_load = data['series'].map(triple => {
@@ -39,7 +43,7 @@ Highcharts.getJSON('/api', function(data) {
     // in der zweiten etwas zu niedrig.
 
     var chartMinX = 0, chartMaxX = 0
-    Highcharts.stockChart('container', {
+    timeChart = Highcharts.stockChart('container', {
         yAxis: [{ // Primary y-axis (index 0)
             title: {text: 'Prices (€/MWh)'},
             labels: {
@@ -111,7 +115,7 @@ Highcharts.getJSON('/api', function(data) {
                 events: {
                     legendItemClick: function (col) {
                         if (col.target.index === 0) {
-                            $(chart.series).each(function () {
+                            $(timeChart.series).each(function () {
                                 if (this.index !== 0) {
                                     // this.setVisible(false, false);
                                     console.log("Clicked!")
@@ -126,28 +130,28 @@ Highcharts.getJSON('/api', function(data) {
             enabled: true
         },
         function() {
-            const chart = this;
+            const timeChart = this;
             Highcharts.addEvent(
-                chart.container,
+                timeChart.container,
                 document.onmousewheel === undefined ? 'DOMMouseScroll' : 'mousewheel',
                 function (event) {
-                    const axis = chart.xAxis[0],
+                    const axis = timeChart.xAxis[0],
                         extremes = axis.getExtremes(),
                         min = extremes.min,
                         max = extremes.max,
                         range = max - min,
                         precision = range / 150,
-                        e = chart.pointer.normalize(event)
+                        e = timeChart.pointer.normalize(event)
 
                     let delta = e.deltaY, prevent = true
 
-                    if (chart.isInsidePlot(e.chartX - chart.plotLeft, e.chartY - chart.plotTop)) {
-                        const proportion = (e.chartX - chart.plotLeft) / chart.plotWidth
+                    if (timeChart.isInsidePlot(e.chartX - chart.plotLeft, e.chartY - chart.plotTop)) {
+                        const proportion = (e.chartX - timeChart.plotLeft) / timeChart.plotWidth
                         axis.setExtremes(min + proportion * delta * precision, max)
 
                         // Crosshair handling logic
-                        chart.yAxis.forEach(axis => {
-                            if (!(axis.pos < e.chartY && axis.pos + axis.len > e.chartY) && chart.hoverPoint && axis.cross) {
+                        timeChart.yAxis.forEach(axis => {
+                            if (!(axis.pos < e.chartY && axis.pos + axis.len > e.chartY) && timeChart.hoverPoint && axis.cross) {
                                 delete axis.cross.e
                             }
                         })
@@ -259,7 +263,6 @@ const selectorRes = new TomSelect('#select-resolution', {
  * Centered Mean Average Calculation
  */
 function cma_replacement () {
-    var chart = Highcharts.charts[0]
     var cmaFiltersNew = cma_selector.items.map(item => {return })
     var cmaFilters = []
     for (var selected_cma_index in cma_selector.items) {
@@ -269,19 +272,19 @@ function cma_replacement () {
     }
     if(cmaFilters.length === 0) { toast(" No timeseries to smooth selected! "); return; }
 
-    for (var seriesIndex in chart.series) {
+    for (var seriesIndex in timeChart.series) {
         // Example: var results = array.filter(function(x) { return x.ID == 3 });
-        var name = chart.series[seriesIndex]["name"]
+        var name = timeChart.series[seriesIndex]["name"]
         if (cmaFilters.includes(name)) {
             console.log("Found match: " + name)
         } else {
             if( cma_selector.options[name] ) {  // computed graph lines aren't in the selector
-                chart.series[seriesIndex].setData(cma_selector.options[name].data)
+                timeChart.series[seriesIndex].setData(cma_selector.options[name].data)
             }
             continue
         }
         // Having trouble with this as this doesn't return the date (NaN and sometimes not all list entries
-        // chart.series[seriesIndex].options.data  // list of objects with x and y attributes
+        // timeChart.series[seriesIndex].options.data  // list of objects with x and y attributes
         console.log(cma_selector.options)
         var timedValues = cma_selector.options[name].data  // list of objects with x and y attributes
         var preservedValues = timedValues.slice()
@@ -313,7 +316,7 @@ function cma_replacement () {
             MOVINGWINDOW.shift()
             // console.log(MOVINGWINDOW)
         }
-        chart.series[seriesIndex].setData( newShorterTime )
+        timeChart.series[seriesIndex].setData( newShorterTime )
         cma_selector.options[name].data = preservedValues
     }
 }

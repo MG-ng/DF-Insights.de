@@ -90,7 +90,7 @@ def get_dunkelflaute_timeseries( region, resolution, max_share, min_duration_ms,
                      count(df.start_time) as occurrences_in_last_rolling_year,
                      sum(df.end_time - df.start_time)::BIGINT/1000/60/60/24 as total_days_in_last_rolling_year
 			FROM {VIEW_NAME_RE_SHARE_EXT_TRADE} series
-			JOIN dunkelflauten df ON (series.unix_timestamp_ms - 1000 *60 *60 *24 *365::BIGINT < df.start_time
+			JOIN dunkelflauten df ON (series.unix_timestamp_ms - 1000 *60 *60 *24 *365::BIGINT < df.end_time
                                   AND series.unix_timestamp_ms >= df.start_time)
             WHERE series.resolution='day'  -- To keep the answer fast
 			GROUP BY series.unix_timestamp_ms, series.region, series.resolution
@@ -109,6 +109,27 @@ def get_dunkelflaute_timeseries( region, resolution, max_share, min_duration_ms,
     return rows, column_names
 
 
+def getEnrichedDunkelflauten( tableName ):
+    conn, cursor, rows, column_names = [None] * 4
+    try:
+        conn = psycopg2.connect( **DB_PARAMS )
+        cursor = conn.cursor()
+
+        cursor.execute( f"""
+			SELECT *
+			FROM {tableName};
+			""" )
+        rows = cursor.fetchall()
+
+        column_names = [ desc[ 0 ] for desc in cursor.description ]
+        print( f"Computed: Found {len( rows )} rows with columns: {column_names}")
+
+    except psycopg2.Error as e:
+        print( f"Database error: {e}" )
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+    return rows, column_names
 
 
 

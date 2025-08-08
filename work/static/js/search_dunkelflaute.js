@@ -1,6 +1,8 @@
 "use strict"; // Turns on strict mode for this compilation unit
 
-import { dunkelflauteColor, Match, timeShares } from "./setupHome.js"
+console.log("Executing Search Dunkelflaute…")
+
+import { timeChart, dunkelflauteColor, Match, timeShares } from "./setupHome.js"
 import {loadingToast, randomHSL, toast, unix_time_duration} from "./script.js"
 import {closeLoadingToast, dataResolution, toasts} from "./flask_variables.js"
 window.search_dunkelflaute = search_dunkelflaute  // needed for the button onclick
@@ -12,8 +14,7 @@ function search_dunkelflaute() {
     var input = getDunkelflauteInput()
     if (!input) { return }
 
-    var chart = Highcharts.charts[0]
-    chart.xAxis.forEach( xAxis => xAxis.removePlotBand('same') )
+    timeChart.xAxis.forEach( xAxis => xAxis.removePlotBand('same') )
 
     // Change the Search Button to Loading...
     var btn = document.getElementById('btn_search_dunkelflaute')
@@ -22,7 +23,8 @@ function search_dunkelflaute() {
         '<span class="mx-2">Loading...</span>'
 
     fetch('/search?maxShare=' + input["maxShare"] + "&min_duration_ms=" +
-        unix_time_duration(input["minDuration"], input["dataRes"]))
+        unix_time_duration(input["minDuration"], input["dataRes"])
+        + "&resolution=" + input["dataRes"] )
         .then(response => { return response.json() }
         ).then(data => {
         console.log("Matches: ", data["series"])
@@ -30,7 +32,7 @@ function search_dunkelflaute() {
         for (var time_tuple of data["series"]) {
             var match = new Match(time_tuple[0], time_tuple[1], null)
 
-            for (const xAxis of chart.xAxis) {  // There are 2 xAxis: one for the view, one for the view finder below
+            for (const xAxis of timeChart.xAxis) {  // There are 2 xAxis: one for the view, one for the view finder below
                 xAxis.addPlotBand(match.plotBand())
             }
         }
@@ -58,7 +60,6 @@ function add_dunkelflaute_timeseries() {
     toasts.push( loadingToast() )
     toasts[toasts.length-1].showToast()
 
-    var chart = Highcharts.charts[0]
 
     fetch( '/trend?maxShare=' + input["maxShare"] + "&min_duration_ms=" +
         unix_time_duration( input["minDuration"], input["dataRes"] ) )
@@ -73,8 +74,8 @@ function add_dunkelflaute_timeseries() {
             toast("Loading Error! Contact the site maintainer."); return;
         }
 
-        if( !chart.get( 'occurrences' ) ) {
-            chart.addAxis({
+        if( !timeChart.get( 'occurrences' ) ) {
+            timeChart.addAxis({
                 id: 'occurrences',
                 title: {
                     text: 'Dunkelflaute Events in Last Rolling Year'
@@ -85,15 +86,15 @@ function add_dunkelflaute_timeseries() {
             })
         }
 
-        chart.addSeries({
+        timeChart.addSeries({
             name: 'Events of Max ' + (input["maxShare"]*100) + "% R.E. & Min " + input["days"] + "d",
             data: dbData.map(innerList => [innerList[0], innerList[1]]),
             yAxis: 'occurrences',
             color: "#C3003E"
         })
 
-        if( !chart.get( 'duration' ) ) {  // undefined when not existent
-            chart.addAxis({
+        if( !timeChart.get( 'duration' ) ) {  // undefined when not existent
+            timeChart.addAxis({
                 id: 'duration',
                 title: {
                     text: 'Total Duration of Dunkelflaute in Last Rolling Year'
@@ -104,7 +105,7 @@ function add_dunkelflaute_timeseries() {
             })
         }
 
-        chart.addSeries({
+        timeChart.addSeries({
             name: 'Summed Duration of Max ' + (input["maxShare"]*100) + "% R.E. & Min " + input["days"] + "d",
             data: dbData.map(innerList => [innerList[0], innerList[2]]),
             yAxis: 'duration',
