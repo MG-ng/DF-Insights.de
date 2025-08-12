@@ -35,9 +35,11 @@
             <option value="day" selected>Day</option>
             <option value="week">Week</option>
         </select>
-        <button onclick="search_dunkelflaute()" style="vertical-align: unset;"
-                id="btn_search_dunkelflaute" class="btn btn-primary m-2" type="button"> Search </button>
+        <span class="text-muted align-middle m-2"
+              data-tooltip=" This also sets the data resolution the search is performed upon. " >&#9432;</span>
         <br>
+        <button onclick="search_dunkelflaute()" style="vertical-align: unset;"
+                id="btn_search_dunkelflaute" class="btn btn-primary m-2" type="button"> Search and Highlight </button>
         <button onclick="add_dunkelflaute_timeseries()" style="vertical-align: unset;"
                 id="btn_series_dunkelflaute" class="btn btn-primary m-2" type="button"> Add Occurrences and Duration Trendlines </button>
     </div>

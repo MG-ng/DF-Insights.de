@@ -25,28 +25,28 @@ function search_dunkelflaute() {
     fetch('/search?maxShare=' + input["maxShare"] + "&min_duration_ms=" +
         unix_time_duration(input["minDuration"], input["dataRes"])
         + "&resolution=" + input["dataRes"] )
-        .then(response => { return response.json() }
+        .then(response => {
+            btn.disabled = false
+            btn.innerHTML = ' Search '
+            return response.json() }
         ).then(data => {
-        console.log("Matches: ", data["series"])
+            console.log("Matches: ", data["series"])
 
-        for (var time_tuple of data["series"]) {
-            var match = new Match(time_tuple[0], time_tuple[1], null)
+            for (var time_tuple of data["series"]) {
+                var match = new Match(time_tuple[0], time_tuple[1], null)
 
-            for (const xAxis of timeChart.xAxis) {  // There are 2 xAxis: one for the view, one for the view finder below
-                xAxis.addPlotBand(match.plotBand())
+                for (const xAxis of timeChart.xAxis) {  // There are 2 xAxis: one for the view, one for the view finder below
+                    xAxis.addPlotBand(match.plotBand())
+                }
             }
-        }
 
-        toast("Found " + data["series"].length + " periods matching your criteria.")
+            toast("Found " + data["series"].length + " periods matching your criteria.")
 
-        btn.disabled = false
-        btn.innerHTML = ' Search '
-
-    }).catch(reason => {
-        if (reason) {
-            toast("Error in response because: ", reason.toString())
-        }
-    });
+        }).catch(reason => {
+            if (reason) {
+                toast("Nothing found ", reason.toString())
+            }
+        });
 }
 
 function add_dunkelflaute_timeseries() {
@@ -61,8 +61,9 @@ function add_dunkelflaute_timeseries() {
     toasts[toasts.length-1].showToast()
 
 
-    fetch( '/trend?maxShare=' + input["maxShare"] + "&min_duration_ms=" +
-        unix_time_duration( input["minDuration"], input["dataRes"] ) )
+    fetch( '/trend?maxShare=' + input["maxShare"] + "&min_duration_ms="
+        + unix_time_duration( input["minDuration"], input["dataRes"] )
+        + '&resolution=' + input["dataRes"]  )
         .then(response => { return response.json() }
         ).then(data => {
 
