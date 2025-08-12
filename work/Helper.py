@@ -27,19 +27,17 @@ DB_PARAMS = {
     'port': 5432
 }
 
-COMPUTED_IDS = {1, 2, 3, 4, 5, 6}
+COMPUTED_IDS = {1, 2, 3, 4, 5}
 # KEEP SPECIFIC IDS IN REGARD TO THEIR MEANING, they're used in the DB setup
 RE_SHARE_ID = 1
 WIND_SOLAR_ID = 6
 ELEC_IMPORT_ID = 2
-ELEC_EXPORT_ID = 3
 ELEC_PRICE_CHANGE_ABS_ID = 4
 ELEC_PRICE_CHANGE_REL_ID = 5
 FILTER = {
     "Anteil Photovoltaik-, Wind Onshore- und Wind (Computed)": WIND_SOLAR_ID,
     "Anteil erneuerbarer Energien (Computed)": RE_SHARE_ID,
-    "Importierter Strom (Computed)": ELEC_IMPORT_ID,
-    "Exportierter Strom (Computed)": ELEC_EXPORT_ID,
+    "Importierter Strom (Computed) -don't use": ELEC_IMPORT_ID,
     "DE-LUX Anstieg Strom Absolut (Computed)": ELEC_PRICE_CHANGE_ABS_ID,
     "DE-LUX Anstieg Strom Relativ (Computed)": ELEC_PRICE_CHANGE_REL_ID,
     "Stromerzeugung: Braunkohle": 1223,
@@ -87,8 +85,7 @@ FILTER = bidict(FILTER)
 FilterTranslationsList = [
     "Share_of_Photovoltaic_Wind_onshore_offshore_Computed",
     "Share_of_Renewable_Energies_Computed",
-    "Imported_Electricity_Computed",
-    "Exported_Electricity_Computed",
+    "Imported_Electricity_Computed_dont_use",
     "GerLux_Price_Change_Abs_Computed",
     "GerLux_Price_Change_Rel_Computed",
     "Electricity_Production_Lignite",

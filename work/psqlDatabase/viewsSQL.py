@@ -44,6 +44,7 @@ re_share_import_view_sql = f"""
         """
 
 
+# correctly traceable
 price_change_view_sql = f"""
 WITH ger_lux_prices AS (SELECT unix_timestamp_ms,
                                region,
@@ -65,7 +66,7 @@ SELECT unix_timestamp_ms,
        last_time,
        last_price,
        (current_price - last_price)::DECIMAL(7, 3)       as {FilterTranslations[FILTER.inverse[ELEC_PRICE_CHANGE_ABS_ID]]},
-       ((current_price / last_price) - 1)::DECIMAL(9, 5) as {FilterTranslations[FILTER.inverse[ELEC_PRICE_CHANGE_REL_ID]]}
+       ((current_price / last_price) - 1.0)::DECIMAL(7, 3) as {FilterTranslations[FILTER.inverse[ELEC_PRICE_CHANGE_REL_ID]]}
 FROM ger_lux_prices tmp
 WHERE current_price IS NOT NULL
   AND last_price IS NOT NULL
@@ -83,6 +84,7 @@ ORDER BY region, unix_timestamp_ms
 
 # Filter quicker dunkelflauten via WHERE duration> on view
 # TODO: Add only solar and wind production?
+# TODO: Add peak price during DUnkelflaute?
 def dunkelflauten_stats_view_sql( threshold=0.3 ):
         return f"""
                 WITH prices AS (
@@ -214,11 +216,11 @@ def dunkelflauten_stats_view_sql( threshold=0.3 ):
                                 FROM dunkelflauten_prices dp
                 
                     ) SELECT *, extent * price_increase_during_df_weighted ::DECIMAL(14, 2) AS dunkelflauten_cost,
-                             extract(DOW FROM (to_timestamp((start_time + end_time) / 2 / 1000) AT TIME ZONE 'UTC' 
+                             extract(DOW FROM (to_timestamp((start_time + end_time) / 2 / 1000) 
                                 AT TIME ZONE 'Europe/Berlin')) AS day_of_week,
-                             extract(MONTH FROM (to_timestamp((start_time + end_time) / 2 / 1000) AT TIME ZONE 'UTC' 
+                             extract(MONTH FROM (to_timestamp((start_time + end_time) / 2 / 1000) 
                                 AT TIME ZONE 'Europe/Berlin')) AS month,
-                             extract(YEAR FROM (to_timestamp((start_time + end_time) / 2 / 1000) AT TIME ZONE 'UTC' 
+                             extract(YEAR FROM (to_timestamp((start_time + end_time) / 2 / 1000)  
                                 AT TIME ZONE 'Europe/Berlin')) AS year,
                              duration as duration_ms,
                              (duration / (1000*60*60*24.0))::Decimal(5, 2) AS duration_days
@@ -231,7 +233,6 @@ def dunkelflauten_stats_view_sql( threshold=0.3 ):
 
 
 """
-
 -- temporal price distribution
 
 SELECT series2019.price2019, series2020.price2020, series2021.price2021, series2022.price2022,
@@ -296,4 +297,163 @@ WHERE series2019.t2019_days = series2020.t2020_days
     AND series2021.t2021_days = series2022.t2022_days
     AND series2022.t2022_days = series2023.t2023_days
     AND series2023.t2023_days = series2024.t2024_days
+"""
+
+
+"""
+-- META STATS of data
+    
+SELECT count(t.unix_timestamp_ms), TO_CHAR(
+        to_timestamp(min(t.unix_timestamp_ms)/1000) AT TIME ZONE 'Europe/Berlin',
+        'YYYY/MM/DD HH24:MI' ) AS min, TO_CHAR(
+        to_timestamp(max(t.unix_timestamp_ms)/1000) AT TIME ZONE 'Europe/Berlin',
+        'YYYY/MM/DD HH24:MI' ) AS max
+    FROM smard_data_collection t
+    WHERE resolution = 'quarterhour'
+      AND region = 'DE'
+UNION ALL
+    SELECT count(t.unix_timestamp_ms), TO_CHAR(
+        to_timestamp(min(t.unix_timestamp_ms)/1000) AT TIME ZONE 'Europe/Berlin',
+        'YYYY/MM/DD HH24:MI' ) AS min, TO_CHAR(
+        to_timestamp(max(t.unix_timestamp_ms)/1000) AT TIME ZONE 'Europe/Berlin',
+        'YYYY/MM/DD HH24:MI' ) AS max
+    FROM smard_data_collection t
+    WHERE resolution = 'quarterhour'
+      AND region = 'DE' AND t.market_price_ger_lux IS NOT NULL    
+-- count: 370268, min: 2014/12/29 00:00, max: 2025/07/20 23:45
+-- count: 237984, min: 2018/10/01 00:00, max: 2025/07/14 23:45
+    
+-- 370272 /4/24 = 3857 days of record
+-- 3857 /365 = 10 years 207 days
+"""
+
+
+"""
+-- price during filtered for 100% R.E. supply
+
+SELECT t.unix_timestamp_ms, sdc.market_price_ger_lux, TO_CHAR(
+        to_timestamp(t.unix_timestamp_ms/1000) AT TIME ZONE 'Europe/Berlin',
+        'MM/DD HH24:MI'
+    ) AS date, ROW_NUMBER() OVER (ORDER BY market_price_ger_lux DESC) as hour, 2024 as year,
+               t.share_of_photovoltaic_wind_onshore_offshore_computed as size
+FROM computed_data_re_share_and_external_trade t
+JOIN public.smard_data_collection sdc
+    ON t.unix_timestamp_ms = sdc.unix_timestamp_ms AND t.region = sdc.region AND t.resolution = sdc.resolution
+WHERE t.share_of_photovoltaic_wind_onshore_offshore_computed >= 1
+AND t.resolution = 'hour'
+AND t.region = 'DE'
+AND extract(YEAR FROM to_timestamp(t.unix_timestamp_ms / 1000)) = 2024
+AND sdc.market_price_ger_lux IS NOT NULL
+
+UNION ALL
+
+SELECT t.unix_timestamp_ms, sdc.market_price_ger_lux, TO_CHAR(
+        to_timestamp(t.unix_timestamp_ms/1000) AT TIME ZONE 'Europe/Berlin',
+        'MM/DD HH24:MI'
+    ) AS date, ROW_NUMBER() OVER (ORDER BY market_price_ger_lux DESC) as hour, 2023 as year,
+               t.share_of_photovoltaic_wind_onshore_offshore_computed as size
+FROM computed_data_re_share_and_external_trade t
+JOIN public.smard_data_collection sdc
+    ON t.unix_timestamp_ms = sdc.unix_timestamp_ms AND t.region = sdc.region AND t.resolution = sdc.resolution
+WHERE t.share_of_photovoltaic_wind_onshore_offshore_computed >= 1
+AND t.resolution = 'hour'
+AND t.region = 'DE'
+AND extract(YEAR FROM to_timestamp(t.unix_timestamp_ms / 1000)) = 2023
+AND sdc.market_price_ger_lux IS NOT NULL
+
+UNION ALL
+
+SELECT t.unix_timestamp_ms, sdc.market_price_ger_lux, TO_CHAR(
+        to_timestamp(t.unix_timestamp_ms/1000) AT TIME ZONE 'Europe/Berlin',
+        'MM/DD HH24:MI'
+    ) AS date, ROW_NUMBER() OVER (ORDER BY market_price_ger_lux DESC) as hour, 2025 as year,
+               t.share_of_photovoltaic_wind_onshore_offshore_computed as size
+FROM computed_data_re_share_and_external_trade t
+JOIN public.smard_data_collection sdc
+    ON t.unix_timestamp_ms = sdc.unix_timestamp_ms AND t.region = sdc.region AND t.resolution = sdc.resolution
+WHERE t.share_of_photovoltaic_wind_onshore_offshore_computed >= 1
+AND t.resolution = 'hour'
+AND t.region = 'DE'
+AND extract(YEAR FROM to_timestamp(t.unix_timestamp_ms / 1000)) = 2025
+AND sdc.market_price_ger_lux IS NOT NULL
+
+UNION ALL
+
+SELECT t.unix_timestamp_ms, sdc.market_price_ger_lux, TO_CHAR(
+        to_timestamp(t.unix_timestamp_ms/1000) AT TIME ZONE 'Europe/Berlin',
+        'MM/DD HH24:MI'
+    ) AS date, ROW_NUMBER() OVER (ORDER BY market_price_ger_lux DESC) as hour, 2022 as year,
+               t.share_of_photovoltaic_wind_onshore_offshore_computed as size
+FROM computed_data_re_share_and_external_trade t
+JOIN public.smard_data_collection sdc
+    ON t.unix_timestamp_ms = sdc.unix_timestamp_ms AND t.region = sdc.region AND t.resolution = sdc.resolution
+WHERE t.share_of_photovoltaic_wind_onshore_offshore_computed >= 1
+AND t.resolution = 'hour'
+AND t.region = 'DE'
+AND extract(YEAR FROM to_timestamp(t.unix_timestamp_ms / 1000)) = 2022
+AND sdc.market_price_ger_lux IS NOT NULL
+    
+-- The Value of Electricity is in Hellbrise always negative, hours of incidences increasing every year
+-- 2025: 126 out of (365*24h=) 8760h => 1.44%
+
+-- Outliers 2023: 
+-- market price GER/LUX: -500.00, date: 2023/07/02, time: 14, more supply of wind+solar than demand: 2.72%
+-- market price GER/LUX: -399.00, date: 2023/07/02, time: 15, more supply of wind+solar than demand: 5.88%
+-- market price GER/LUX: -266.92, date: 2023/07/02, time: 13, more supply of wind+solar than demand: 0.89%
+
+-- TODO: Transform query to the use of CTE to reduce duplicate lines
+"""
+
+
+
+"""
+-- Power Consumption Total is not solely responsible for the prices as 2024/01/15 11:00, max(2024), the price was 90.26 €/MWh
+-- and 2023/06/18 04:00, min(2023), the price was at 104.00 €/MWh
+-- Keep in mind that these extremes are closely followed by unrelated points in time where the consumption was about the same
+-- Nevertheless, the maxima are in the winter, minima most times in the summer with Xmas 2022 and 2024/09/22 3am as an exemption
+WITH temp as (
+    SELECT t.unix_timestamp_ms, t.power_consumption_total, extract(YEAR FROM to_timestamp(t.unix_timestamp_ms / 1000)) as year,
+           TO_CHAR(
+            to_timestamp(t.unix_timestamp_ms/1000) AT TIME ZONE 'Europe/Berlin',
+            'YYYY/MM/DD HH24:MI'
+        ) AS date, market_price_ger_lux
+    FROM smard_data_collection t
+    WHERE t.region='DE'
+    AND t.resolution='hour'
+)
+SELECT * FROM (
+    SELECT *,
+           power_consumption_total = MAX(power_consumption_total) OVER() OR
+           power_consumption_total = MIN(power_consumption_total) OVER() as is_extreme
+    FROM temp t WHERE year=2023
+) t2023 WHERE t2023.is_extreme
+UNION ALL
+SELECT * FROM (
+    SELECT *,
+           power_consumption_total = MAX(power_consumption_total) OVER() OR
+           power_consumption_total = MIN(power_consumption_total) OVER() as is_extreme
+    FROM temp t WHERE year=2024
+) t2024 WHERE t2024.is_extreme
+UNION ALL
+SELECT * FROM (
+    SELECT *,
+           power_consumption_total = MAX(power_consumption_total) OVER() OR
+           power_consumption_total = MIN(power_consumption_total) OVER() as is_extreme
+    FROM temp t WHERE year=2022
+) t2022 WHERE t2022.is_extreme
+UNION ALL
+SELECT * FROM (
+    SELECT *,
+           power_consumption_total = MAX(power_consumption_total) OVER() OR
+           power_consumption_total = MIN(power_consumption_total) OVER() as is_extreme
+    FROM temp t WHERE year=2021
+) t2021 WHERE t2021.is_extreme
+UNION ALL
+SELECT * FROM ( -- Corona year was the weakest
+    SELECT *,
+           power_consumption_total = MAX(power_consumption_total) OVER() OR
+           power_consumption_total = MIN(power_consumption_total) OVER() as is_extreme
+    FROM temp t WHERE year=2020
+) t2020 WHERE t2020.is_extreme
+ORDER BY power_consumption_total
 """

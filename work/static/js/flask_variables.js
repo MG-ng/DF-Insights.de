@@ -79,8 +79,8 @@ var reloadData = function() {
                         id: ordering[i+2],
                         name: ordering[i+2],
                         data: newList,
-                        yAxis: ordering[i+2].toLowerCase().includes("price") ? 0 :   // TODO: Enhance Logic and correctness
-                            ordering[i+2].includes("Share") || ordering[i+2].includes("Rel") ? 2 :1,
+                        yAxis: ordering[i+2].includes("Share") || ordering[i+2].includes("Rel") ? 2 :
+                            ordering[i+2].toLowerCase().includes("price") ? 0 : 1,  // TODO: Enhance Logic and correctness
                         color: randomHSL()
                     })
                     cma_selector.addOption({
