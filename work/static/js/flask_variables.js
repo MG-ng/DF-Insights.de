@@ -26,7 +26,7 @@ var reloadData = function() {
         console.log( timeChart.series )
         // console.log( selector.getValue() )
         // console.log( selector.items )  // The same as above
-        // console.log( selector.options )  WANTED
+        // console.log( selector.options ) WANTED
 
         var selectedFilterList = []
         // Clear all existing options

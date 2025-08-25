@@ -11,6 +11,7 @@ TABLE_NAME_SMARD = 'smard_data_collection'
 VIEW_NAME_RE_SHARE_EXT_TRADE = 'computed_data_re_share_and_external_trade'
 VIEW_NAME_PRICE_CHANGE = 'computed_data_price_change_ger_lux'
 VIEW_NAME_DUNKELFLAUTEN_STATS = 'computed_data_dunkelflauten_enriched'
+VIEW_NAME_HISTORICAL_WEATHER_AGG = 'computed_data_historical_weather_aggregation'
 FLAG = -1e8
 
 # Reading from environment variable
@@ -27,7 +28,7 @@ DB_PARAMS = {
     'port': 5432
 }
 
-COMPUTED_IDS = {1, 2, 3, 4, 5}
+COMPUTED_IDS = {1, 2, 4, 5, 6}
 # KEEP SPECIFIC IDS IN REGARD TO THEIR MEANING, they're used in the DB setup
 RE_SHARE_ID = 1
 WIND_SOLAR_ID = 6

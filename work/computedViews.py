@@ -97,7 +97,8 @@ if __name__ == "__main__":
 
     for view_name, sql in [(VIEW_NAME_RE_SHARE_EXT_TRADE, re_share_import_view_sql),
                            [VIEW_NAME_PRICE_CHANGE, price_change_view_sql],
-                           [VIEW_NAME_DUNKELFLAUTEN_STATS, None]]:
+                           [VIEW_NAME_DUNKELFLAUTEN_STATS, None],
+                           [VIEW_NAME_HISTORICAL_WEATHER_AGG, None]]:
 
         if sql is None:
             for threshold in [ 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55 ]:

@@ -84,7 +84,7 @@ ORDER BY region, unix_timestamp_ms
 
 # Filter quicker dunkelflauten via WHERE duration> on view
 # TODO: Add only solar and wind production?
-# TODO: Add peak price during DUnkelflaute?
+# TODO: Add peak price during Dunkelflaute?
 def dunkelflauten_stats_view_sql( threshold=0.3 ):
         return f"""
                 WITH prices AS (
@@ -134,12 +134,12 @@ def dunkelflauten_stats_view_sql( threshold=0.3 ):
                      extent_revenue AS ( -- 17 seconds for this table
                         SELECT pd.*,
                            (
-                               SELECT SUM(p.res_load)
+                               SELECT SUM(p.res_load)   -- quarterhour resolution: MWh
                                    FROM prices p
                                    WHERE p.unix_timestamp_ms 
                                    BETWEEN pd.start_time AND pd.end_time) AS extent,
                            (
-                               SELECT SUM(p.res_load * p.ger_lux)
+                               SELECT SUM(p.res_load * p.ger_lux)  -- MWh * €/MWh = €
                                    FROM prices p
                                    WHERE p.unix_timestamp_ms 
                                    BETWEEN pd.start_time AND pd.end_time) AS res_load_revenue_during_df,
@@ -228,6 +228,25 @@ def dunkelflauten_stats_view_sql( threshold=0.3 ):
 """
 
 
+historical_weather_aggregation = """
+-- SELECT DISTINCT lat, lng from historical_weather_data
+/*
+ 47.97890853881836,7.176079750061035
+47.97890853881836,10.01661205291748
+47.97890853881836,13.006645202636719
+50.017574310302734,7.068062782287598
+50.017574310302734,10.052355766296387
+50.017574310302734,12.8795804977417
+51.985939025878906,6.935780048370361
+51.985939025878906,10.073394775390625
+51.985939025878906,13.04587173461914
+54.02460479736328,6.976743698120117
+54.02460479736328,9.94186019897461
+54.02460479736328,13.081395149230957
+ */
+ 
+SELECT *  from historical_weather_data
+"""
 
 
 
@@ -456,4 +475,68 @@ SELECT * FROM ( -- Corona year was the weakest
     FROM temp t WHERE year=2020
 ) t2020 WHERE t2020.is_extreme
 ORDER BY power_consumption_total
+        /*
+        consumption: 30902.75,  year: 2023,  date: 2023/06/18 04:00,  price: 104.00
+        consumption: 32413.25,  year: 2024,  date: 2024/09/22 03:00,  price: 89.50
+        consumption: 33042.50,  year: 2020,  date: 2020/06/01 03:00,  price: 6.07
+        consumption: 34122.50,  year: 2022,  date: 2022/12/25 02:00,  price: 106.65
+        consumption: 36580.75,  year: 2021,  date: 2021/06/06 05:00,  price: 51.63
+        consumption: 73747.50,  year: 2023,  date: 2023/12/04 17:00,  price: 127.75
+        consumption: 75508.25,  year: 2024,  date: 2024/01/15 11:00,  price: 90.26
+        consumption: 78599.25,  year: 2020,  date: 2020/12/03 17:00,  price: 52.94
+        consumption: 78680.50,  year: 2022,  date: 2022/02/01 12:00,  price: 143.70
+        consumption: 81319.50,  year: 2021,  date: 2021/11/30 11:00,  price: 108.44
+        */
+"""
+
+
+
+"""
+-- Residual Load = Backup Power Plant needs
+SELECT max(t.power_consumption_residual_load) as megawatt_res_load, extract(YEAR FROM to_timestamp(t.unix_timestamp_ms / 1000)) as year
+FROM smard_data_collection t
+WHERE t.resolution = 'hour'
+AND t.region = 'DE'
+GROUP BY extract(YEAR FROM to_timestamp(t.unix_timestamp_ms / 1000))
+ORDER BY year
+/*
+75093.5,2015
+75951.75,2016
+76049,2017
+72721.75,2018
+74638.75,2019
+72274.5,2020
+70465,2021
+70964,2022
+67957.75,2023
+67251,2024
+67890.25,2025
+*/
+"""
+
+
+
+"""
+-- Electricity consumption per year in TWh
+SELECT extract(YEAR FROM to_timestamp(min(t.unix_timestamp_ms) / 1000)) AS date,
+       sum( t.power_consumption_total ) /1000 /1000 AS yearly_consumption_in_TWh
+FROM smard_data_collection t
+WHERE resolution='hour'
+AND region='DE'
+AND extract(YEAR FROM to_timestamp(t.unix_timestamp_ms / 1000)) IN (
+        2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024
+    )
+GROUP BY extract(YEAR FROM to_timestamp(t.unix_timestamp_ms / 1000))
+    /*
+     2015: 500.218634
+     2016: 503.0870325
+     2017: 505.67943475
+     2018: 509.25270175
+     2019: 497.36780625
+     2020: 485.357906
+     2021: 504.6008845
+     2022: 482.29037925
+     2023: 458.3835565
+     2024: 465.508479
+     */
 """

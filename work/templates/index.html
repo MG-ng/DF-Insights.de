@@ -16,7 +16,7 @@
         abzüglich der Erzeugung von Photovoltaik- und Windkraftanlagen."
         https://www.smard.de/page/home/wiki-article/446/2556/stromverbrauch
         -->
-<div class="form-group mt-5">
+<div class="section form-group mt-5">
     <h3 class="form-label text-muted fw-bolder">Search for your Dunkelflauten Definition</h3>
     <div class="my-2">
         <label for="max_re_share" class="text-muted align-middle m-2">Maximum Share of Renewables</label>
@@ -41,35 +41,39 @@
         <button onclick="search_dunkelflaute()" style="vertical-align: unset;"
                 id="btn_search_dunkelflaute" class="btn btn-primary m-2" type="button"> Search and Highlight </button>
         <button onclick="add_dunkelflaute_timeseries()" style="vertical-align: unset;"
-                id="btn_series_dunkelflaute" class="btn btn-primary m-2" type="button"> Add Occurrences and Duration Trendlines </button>
+                id="btn_series_dunkelflaute" class="btn btn-primary m-2" type="button"> Search and add Occurrences/Duration Trendlines </button>
     </div>
     <div class="my-2">
     </div>
-</div>
 
 
-<div id="container"></div>
-<div id="selectors" style="display: inline-block">
-    <select id="select-resolution" class="selection resolution-selection" placeholder="Select your data resolution"></select>
-    <select id="select-filter" class="selection filter-selection" placeholder="Choose your data to be displayed"> </select>
-</div>
+    <div id="container"></div>
+    <div id="selectors" style="display: inline-block">
+        <select id="select-resolution" class="selection resolution-selection" placeholder="Select your data resolution"></select>
+        <select id="select-filter" class="selection filter-selection" placeholder="Choose your data to be displayed"> </select>
+        <span class="text-muted align-middle m-2"
+              data-tooltip=" Share_of_Photovoltaic_Wind_onshore_offshore_Computed timeseries only includes Wind and
+              Photovoltaic generation while Share_of_Renewable_Energies_Computed also includes biomass, hydro and other
+                sources. " >&#9432;</span>
+    </div>
 
 
-<script id="custom-script" filters="{{ filtersInverse }}" translation="{{ filtersTranslation }}"
-        resolution="{{ dataResolution }}" resolutions="{{ resolutions }}"> </script>
+    <script id="custom-script" filters="{{ filtersInverse }}" translation="{{ filtersTranslation }}"
+            resolution="{{ dataResolution }}" resolutions="{{ resolutions }}"> </script>
 
-<hr>
-<hr>
+    <hr>
+    <hr>
 
-<div class="form-group mt-5">
-    <h3 class="form-label text-muted fw-bolder">Select Filters for Centered Moving Average</h3>
-    <select id="select-cma" class="selection select-cma" placeholder="Choose your filters to be averaged"></select>
-    <div class="my-4">
-        <label id="label" for="period_input" class="text-muted align-middle m-2">Total Period to symmetrically mean average over</label>
-        <input id="period_input" name="period_input" type="range" class="align-middle m-2"
-               min="1" value="10" max="30" step="1" list="markers"> </input>
-        <span id="value" class="text-muted align-middle m-2">Number</span>
-        <button class="btn btn-primary m-2" onclick="cma_replacement()">Recalculate</button>
+    <div class="form-group mt-5">
+        <h3 class="form-label text-muted fw-bolder">Select Filters for Centered Moving Average</h3>
+        <select id="select-cma" class="selection select-cma" placeholder="Choose your filters to be averaged"></select>
+        <div class="my-4">
+            <label id="label" for="period_input" class="text-muted align-middle m-2">Total Period to symmetrically mean average over</label>
+            <input id="period_input" name="period_input" type="range" class="align-middle m-2"
+                   min="1" value="10" max="30" step="1" list="markers"> </input>
+            <span id="value" class="text-muted align-middle m-2">Number</span>
+            <button class="btn btn-primary m-2" onclick="cma_replacement()">Recalculate</button>
+        </div>
     </div>
 </div>
 
@@ -130,8 +134,8 @@
 
 
 
-<div class="bubble-section">
-    <h3 class="form-label text-muted fw-bolder">How Dunkelflauten Behave</h3>
+<div class="section">
+    <h3 class="form-label text-muted fw-bolder">Dunkelflauten Cost Approximation</h3>
     <div id="bubble-chart-container" class="mt-3"></div>
     <div class="controls">
         <div class="control-group">
@@ -163,6 +167,20 @@
             <label for="colorSelect">Bubble Color Column:</label>
             <select id="colorSelect"></select>
         </div>
+
+        <div class="control-group">
+            <label for="minDurationSelect">Select Min Duration in days:</label>
+            <select id="minDurationSelect">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="14">14</option>
+            </select>
+        </div>
     </div>
 
 </div>
@@ -174,5 +192,18 @@
 <script type="module" src="/static/js/search_dunkelflaute.js"></script>
 <script type="module" src="/static/js/dunkelflautenStats.js"></script>
 
+<hr>
+<hr>
+
+<div class="section">
+    <h3 class="m-3 text-muted fw-bolder" style="text-align: center">Cloudiness & Wind Speed at 10m Height</h3>
+    <!-- ventusky.com weather map embed -->
+    <div style="display:block!important;position:relative!important;max-width:77.586vh!important;margin:auto!important;padding:0!important;border:0!important">
+        <div style="display:block!important;position:relative!important;width:100%!important;height:0!important;box-sizing:content-box!important;margin:0!important;border:0!important;padding:0 0 128.889%!important;left:0!important;top:0!important;right:0!important;bottom:0!important">
+            <iframe src="https://embed.ventusky.com/?p=51.2;10.5;5&l=wind-10m&m=icon&w=off&pin=51.2;10.5;dot;Weather%20Map%20of%20Germany" style="display:block!important;position:absolute!important;left:0!important;top:0!important;width:100%!important;height:100%!important;margin:0!important;padding:0!important;border:0!important;right:auto!important;bottom:auto!important" loading="lazy">
+            </iframe>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

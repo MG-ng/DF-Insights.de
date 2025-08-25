@@ -42,7 +42,6 @@ Highcharts.getJSON('/api', function(data) {
     // und am Jahresende bilden. Dadurch liegt prinzipiell die Leistung in der ersten Jahreshälfte etwas zu hoch,
     // in der zweiten etwas zu niedrig.
 
-    var chartMinX = 0, chartMaxX = 0
     timeChart = Highcharts.stockChart('container', {
         yAxis: [{ // Primary y-axis (index 0)
             title: {text: 'Prices (€/MWh)'},
@@ -60,14 +59,42 @@ Highcharts.getJSON('/api', function(data) {
             labels: {style: {color: '#00FF00'}},
             opposite: true // Places it on the right side
         }],
+        tooltip: {
+            shared: false,
+            useHTML: true,
+            xDateFormat: '%a, %b%e, %H:%M',  // "Mon, Jan3, 14:30"
+            // TODO: make this work
+            /* headerFormat: function() {
+                    function addOrdinalSuffix(day) {
+                        if (day >= 11 && day <= 13) { // Handle special cases: 11th, 12th, 13th
+                            return day + 'th'
+                        }
+                        switch (day % 10) { // Handle normal cases based on last digit
+                            case 1:  return day + 'st'  // 1st, 21st, 31st
+                            case 2:  return day + 'nd'  // 2nd, 22nd
+                            case 3:  return day + 'rd'  // 3rd, 23rd
+                            default: return day + 'th'  // 4th, 5th, 6th, 7th, 8th, 9th, 10th, 20th, etc.
+                        }
+                    }
+                    const dayName = Highcharts.dateFormat('%a', this.x)
+                    const month = Highcharts.dateFormat('%b', this.x)
+                    const ordinalDay = addOrdinalSuffix(Highcharts.dateFormat('%e', this.x))
+                    const time = Highcharts.dateFormat('%H:%M', this.x)
+                    return `<span style="font-size: 10px">${this.key}, ${month} ${ordinalDay}, ${time}</span><br>`
+            }*/
+        },
         xAxis: {
             title: {text: 'Date'},
-            ordinal: false,
-            crosshair: true,
+            type: 'datetime',
+            crosshair: {
+                width: 1,
+                color: '#cccccc',
+                dashStyle: 'shortdot'
+            },
             events: {
                 afterSetExtremes: function(e) {
                     var chartDurationDays = (this.max - this.min)/1000/60/60/24  // ms->s->m->h->d
-                    if( !selectorRes.getValue() ){
+                    if( !selectorRes.getValue() ) {
                         // default case in the beginning, no resolution selected
                     } else if( selectorRes.getValue() === selectorRes.options.quarterhour.value
                                 || selectorRes.getValue() === selectorRes.options.hour.value ) {
@@ -111,21 +138,6 @@ Highcharts.getJSON('/api', function(data) {
             }
         }],
         plotOptions: {
-            column: {
-                events: {
-                    legendItemClick: function (col) {
-                        if (col.target.index === 0) {
-                            $(timeChart.series).each(function () {
-                                if (this.index !== 0) {
-                                    // this.setVisible(false, false);
-                                    console.log("Clicked!")
-                                }
-                            });
-                            return false;
-                        }
-                    }
-                }
-            }
         }, legend: {
             enabled: true
         },
@@ -174,6 +186,7 @@ Highcharts.getJSON('/api', function(data) {
     })
 })
 
+
 /**
  * Tom Filter Selector for Big Chart Display
  *
@@ -199,6 +212,16 @@ var filterClasses = [
     }
 ]
 
+function formatFilterName(filterName) {
+    return filterName
+        .split('_')
+        .map(word => {
+            if( word === "of" || word === "to" ) { return word }
+            return word.charAt(0).toUpperCase() + word.slice(1)
+        })
+        .join(' ');
+}
+
 var options = [];
 for (var filter in filters) {
     // console.log(filter, filters[filter])
@@ -207,7 +230,7 @@ for (var filter in filters) {
             filters[filter].includes("Computed") ? filterClasses[2].value :
                 filterClasses[1].value,
         value: filter,
-        label: translations[filters[filter]],
+        label: formatFilterName(translations[filters[filter]]),
         label_scientific: filters[filter]
     })
 }

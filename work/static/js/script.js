@@ -1,7 +1,7 @@
 "use strict"; // Turns on strict mode for this compilation unit: No implicit global variables possible
 // if there is a typo in referencing a variable, without this, there would be created a new undefined
 
-export { randomHSL, toast, loadingToast, unix_time_duration }
+export { randomHSL, toast, loadingToast, unix_time_duration, getTurboColor }
 
 console.log("Executing script.js……")
 
@@ -82,4 +82,18 @@ function unix_time_duration(duration, resolution) {
           throw new Error("Invalid resolution. Must be 'hour', 'day', or 'week'.");
   }
   return durationMs;
+}
+
+function getTurboColor(t) {
+    // t should be between 0 and 1
+    t = Math.max(0, Math.min(1, t));
+
+    const r = Math.max(0, Math.min(1,
+        34.61 + t * (1172.33 + t * (-10793.56 + t * (33300.12 + t * (-38394.49 + t * 14825.05))))));
+    const g = Math.max(0, Math.min(1,
+        23.31 + t * (557.33 + t * (1225.33 + t * (-3574.96 + t * (1073.77 + t * 707.56))))));
+    const b = Math.max(0, Math.min(1,
+        27.2 + t * (3211.1 + t * (-15327.97 + t * (27814.0 + t * (-22569.18 + t * 6838.66))))));
+
+    return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
 }

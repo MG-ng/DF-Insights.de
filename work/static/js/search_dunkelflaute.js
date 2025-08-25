@@ -27,7 +27,7 @@ function search_dunkelflaute() {
         + "&resolution=" + input["dataRes"] )
         .then(response => {
             btn.disabled = false
-            btn.innerHTML = ' Search '
+            btn.innerHTML = ' Search and Highlight '
             return response.json() }
         ).then(data => {
             console.log("Matches: ", data["series"])
@@ -124,9 +124,9 @@ function add_dunkelflaute_timeseries() {
 
 function getDunkelflauteInput() {
     const maxShareElem = document.getElementById("max_re_share")
-    var maxShare = parseInt(maxShareElem.value) / 100  // for percentage interpretation
-    var maxShareMin = parseInt(maxShareElem.min)
-    var maxShareMax = parseInt(maxShareElem.max)
+    var maxShare = parseInt(maxShareElem.value) /100  // for percentage interpretation
+    var maxShareMin = parseInt(maxShareElem.min) /100
+    var maxShareMax = parseInt(maxShareElem.max) /100
     const minDurationElem = document.getElementById("min_duration")
     var minDuration = parseInt(minDurationElem.value)
     var minDurationMin = parseInt(minDurationElem.min)
@@ -143,5 +143,5 @@ function getDunkelflauteInput() {
         toast("Data Resolution is not valid!"); return undefined;
     }
     return { 'maxShare': maxShare, 'minDuration': minDuration, 'dataRes': selectDataRes.value,
-        'days': unix_time_duration( minDuration, selectDataRes.value )/1000/60/60/24 }
+        'days': ( unix_time_duration( minDuration, selectDataRes.value )/1000/60/60/24 ).toFixed(2) }
 }

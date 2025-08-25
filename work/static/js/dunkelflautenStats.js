@@ -2,19 +2,18 @@
 // if there is a typo in referencing a variable, without this, there would be created a new undefined
 
 
+import {toast, getTurboColor} from "./script.js";
+
 export { bubbleChart }
 
-
-const bubbleData = {
-    sales_data: [
-        {id: 1, name: 'Product A', duration: 120000, profit_margin: 15.5, extent: 8.2, market_share: 12.3, growth_rate: 5.2},
-        {id: 2, name: 'Product B', duration: 95000, profit_margin: 22.1, extent: 9.1, market_share: 8.7, growth_rate: 12.1},
-        {id: 3, name: 'Product C', duration: 180000, profit_margin: 18.9, extent: 7.8, market_share: 15.6, growth_rate: 3.4},
-        {id: 4, name: 'Product D', duration: 75000, profit_margin: 28.3, extent: 9.5, market_share: 6.2, growth_rate: 18.7},
-    ]
+var turboStops = []
+function refreshTurboStops(numStops = 50) {
+    turboStops = []
+    for (let i = 0; i <= numStops; i++) {
+        turboStops.push([i / numStops, getTurboColor(i / numStops)]);
+    }
 }
-
-
+refreshTurboStops(10)
 
 const dunkelflauten_features = [
     { value: "start_time", text: "Start Time" },
@@ -55,24 +54,29 @@ function populateSelect(selectId, selectedValue = '') {
     ).join('');
 }
 
-populateSelect('xAxisSelect', 'duration')
+populateSelect('xAxisSelect', 'duration_days')
 populateSelect('yAxisSelect', 'extent')
 populateSelect('sizeSelect', 'dunkelflauten_cost')
+populateSelect('colorSelect', 'price_increase_during_df_weighted')
 
 let bubbleChart;
 
+let colorValues
+let minColorValue
+let maxColorValue
+
 // Initialize the chart
 function createChart() {
-    const selectedTable = document.getElementById('tableSelect').value;
-    const xColumn = document.getElementById('xAxisSelect').value;
-    const yColumn = document.getElementById('yAxisSelect').value;
-    const sizeColumn = document.getElementById('sizeSelect').value;
+    const selectedTable = document.getElementById('tableSelect').value
+    const xColumn = document.getElementById('xAxisSelect').value
+    const yColumn = document.getElementById('yAxisSelect').value
+    const sizeColumn = document.getElementById('sizeSelect').value
+    const colorColumn = document.getElementById('colorSelect').value
 
     updateChartWithRealData()
-    const data = transformDataForChart(selectedTable, xColumn, yColumn, sizeColumn);
 
     if (bubbleChart) {
-        bubbleChart.destroy();
+        bubbleChart.destroy()
     }
 
     bubbleChart = Highcharts.chart('bubble-chart-container', {
@@ -105,10 +109,11 @@ function createChart() {
                 maxSize: 50,
                 tooltip: {
                     headerFormat: '<b>{series.name}</b><br>',
-                    pointFormat: `<b>{point.name}</b><br>
+                    pointFormat: `Start: <b>{point.name}</b><br>
                         ${formatColumnName(xColumn)}: <b>{point.x}</b><br>
                         ${formatColumnName(yColumn)}: <b>{point.y}</b><br>
-                        ${formatColumnName(sizeColumn)}: <b>{point.z}</b>`
+                        ${formatColumnName(sizeColumn)}: <b>{point.z}</b><br>
+                        Duration in days: <b>{point.durationDays}</b><br>`
                 },
                 animation: {
                     duration: 1000,
@@ -117,10 +122,10 @@ function createChart() {
             }
         },
         series: [{
-            name: 'Data Points',
-            data: data,
-            colorByPoint: true,
-            colors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
+            name: 'Dunkelflauten in Germany',
+            // keys: ['x', 'y', 'z', 'colorValue'],
+            colorByPoint: true,  // this option determines whether the chart should receive one color per series or one color per point
+            // colors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
         }],
         responsive: {
             rules: [{
@@ -134,18 +139,7 @@ function createChart() {
                 }
             }]
         }
-    });
-}
-
-// Transform data for the chart based on selected columns
-function transformDataForChart(tableName, xCol, yCol, sizeCol) {
-    const tableData = bubbleData[tableName] || bubbleData.sales_data
-    return tableData.map(row => ({
-        name: row.name,
-        x: row[xCol],
-        y: row[yCol],
-        z: row[sizeCol]
-    }))
+    })
 }
 
 // Format column names for display
@@ -161,6 +155,8 @@ document.getElementById('tableSelect').addEventListener('change', createChart);
 document.getElementById('xAxisSelect').addEventListener('change', createChart);
 document.getElementById('yAxisSelect').addEventListener('change', createChart);
 document.getElementById('sizeSelect').addEventListener('change', createChart);
+document.getElementById('colorSelect').addEventListener('change', createChart);
+document.getElementById('minDurationSelect').addEventListener('change', createChart);
 
 // Initialize the chart when page loads
 createChart();
@@ -171,12 +167,9 @@ createChart();
 
 
 
-
-        // Real-world implementation functions
-        // These would replace the mock data functionality
-
-// Function to fetch data from your PostgreSQL backend
+// Function to fetch data from PostgreSQL backend
 async function fetchTableData(tableName, columns = ['*']) {
+    const minDuration = document.getElementById('minDurationSelect').value
     try {
         const response = await fetch( '/enrichedDF?tableName=' + tableName )
         const data = await response.json()
@@ -185,32 +178,25 @@ async function fetchTableData(tableName, columns = ['*']) {
         if(data) { cols = data["ordering"]; rows = data["series"] }
         console.log(cols)
         console.log(rows)
-        for( var row of rows ){
+        for( var row of rows ) {
             var dunkelflaute = {}
-            for( var index in cols ){
+            for( var index in cols ) {
+                // Downloaded array to convert it back to a map
                 dunkelflaute[cols[index]] = row[index]
+                if( cols[index] === "dp_in_before_after_range" ) {
+                    dunkelflaute[cols[index]] = (row[index] ? 1 : 0)
+                }
             }
             dunkelflauten.push(dunkelflaute)
         }
         console.log(dunkelflauten)
-        return dunkelflauten
+        return dunkelflauten.filter(dunkelflaute => dunkelflaute["duration_days"] >= minDuration)
     } catch (error) {
         console.error('Error fetching data:', error)
         return []
     }
 }
 
-// Function to get column names from a table
-async function getTableColumns(tableName) {
-    try {
-        const response = await fetch(`/enrichedDF/${tableName}`)
-        const columns = await response.json()
-        return columns
-    } catch (error) {
-        console.error('Error fetching columns:', error)
-        return []
-    }
-}
 
 // Function to update chart with real data
 async function updateChartWithRealData() {
@@ -218,17 +204,39 @@ async function updateChartWithRealData() {
     const xColumn = document.getElementById('xAxisSelect').value
     const yColumn = document.getElementById('yAxisSelect').value
     const sizeColumn = document.getElementById('sizeSelect').value
+    const colorColumn = document.getElementById('colorSelect').value
 
-    const requiredColumns = [xColumn, yColumn, sizeColumn, 'name']
+    const requiredColumns = [xColumn, yColumn, sizeColumn, 'name', 'duration_days']
     const data = await fetchTableData(selectedTable, requiredColumns)
 
-    const chartData = data.map(row => ({
-        name: row.start_time,
-        x: parseFloat(row[xColumn]) || 0,
-        y: parseFloat(row[yColumn]) || 0,
-        z: parseFloat(row[sizeColumn]) || 0
-    }))
-
+    var chartData = data.map(row => {
+        /*
+        if( "dp_in_before_after_range" in [xColumn, yColumn, sizeColumn, colorColumn] ) {
+            var index = [xColumn, yColumn, sizeColumn, colorColumn].findIndex("dp_in_before_after_range")
+        }*/
+        return ({
+            name: smartTimestamp(row.start_time, 'date'),
+            x: parseFloat(row[xColumn]) || 0,
+            y: parseFloat(row[yColumn]) || 0,
+            z: parseFloat(row[sizeColumn]) || 0,
+            // colorValue: 0 || 0,  // Doesn't work :/
+            durationDays: row['duration_days']
+        })
+    })
     bubbleChart.series[0].setData(chartData)
 }
 updateChartWithRealData()
+
+
+
+function smartTimestamp(timestamp, format = 'default') {
+    const date = new Date(timestamp)
+
+    switch (format) {
+        case 'date':     return date.toLocaleDateString()      // "3/15/2024"
+        case 'time':     return date.toLocaleTimeString()      // "10:30:45 AM"
+        case 'compact':  return timestampToCompact(timestamp)  // "2024-03-15 10:30"
+        case 'readable': return timestampToReadable(timestamp) // "March 15, 2024 at 10:30 AM"
+        default:         return date.toLocaleString()          // "3/15/2024, 10:30:45 AM"
+    }
+}

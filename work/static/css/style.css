@@ -113,9 +113,6 @@ textarea.form-group {
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
-}
-
-textarea.form-group {
     height: 120px;
     resize: vertical;
 }
@@ -166,7 +163,7 @@ For the Tom Selection Groups
 
 /* Styling for the bubble chart section */
 
-    .bubble-section {
+    .section {
         background: white;
         border-radius: 15px;
         padding: 30px;
@@ -222,4 +219,5 @@ For the Tom Selection Groups
     background: #fffff0;
     padding: .25em;
     margin: 8px;
+    z-index: 1;
 }

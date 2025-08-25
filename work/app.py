@@ -163,13 +163,17 @@ def enrichedDF():
     return {'ordering': columns, 'series': rows}
 
 
-@app.route('/about')
-def about():
-    return render_template('about.html', title='About Us')
-
 @app.route('/features')
 def features():
     return render_template('features.html', title='Features')
+
+@app.route('/usage')
+def usage():
+    return render_template('usage.html', title='Usage')
+
+@app.route('/about')
+def about():
+    return render_template('about.html', title='About Us')
 
 if __name__ == '__main__':
     app.run(debug=True)
