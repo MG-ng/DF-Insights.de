@@ -1,6 +1,8 @@
+from typing import Literal
 
 from Helper import FilterTranslations, TABLE_NAME_SMARD, FILTER, WIND_SOLAR_ID, RE_SHARE_ID, ELEC_IMPORT_ID, \
-        ELEC_PRICE_CHANGE_ABS_ID, ELEC_PRICE_CHANGE_REL_ID, VIEW_NAME_RE_SHARE_EXT_TRADE
+	ELEC_PRICE_CHANGE_ABS_ID, ELEC_PRICE_CHANGE_REL_ID, VIEW_NAME_RE_SHARE_EXT_TRADE, TABLE_NAME_OPEN_METEO, \
+	VIEW_NAME_HISTORICAL_WEATHER_AGG
 
 # Share of the renewable load as a test for the postgresql view
 ## Calculating a virtual percentage/max_share line of (wind+solar) on total demand if resLoad + gridLoad are available
@@ -85,167 +87,376 @@ ORDER BY region, unix_timestamp_ms
 # Filter quicker dunkelflauten via WHERE duration> on view
 # TODO: Add only solar and wind production?
 # TODO: Add peak price during Dunkelflaute?
+preserve_highlighting = f""
 def dunkelflauten_stats_view_sql( threshold=0.3 ):
         return f"""
-                WITH prices AS (
-                    SELECT sdc.unix_timestamp_ms, sdc.region, sdc.resolution, sdc.market_price_ger_lux AS ger_lux,
-                           sdc.power_consumption_residual_load AS res_load
-                        FROM {TABLE_NAME_SMARD} sdc
-                        WHERE sdc.resolution = 'quarterhour'
-                          AND sdc.region = 'DE'
-                          AND sdc.market_price_ger_lux IS NOT NULL -- Prices are null up to 1.10.2018
-                    -- Without throwing out NULL rows: 25 seconds with t.resolution='day'
-                    -- With IS NOT NULL: 12 seconds
-                ),
-                     share_categories AS (
-                        SELECT t.unix_timestamp_ms, t.region, t.resolution, t.share_of_renewable_energies_computed,
-                        CASE
-                        WHEN t.share_of_renewable_energies_computed <= {threshold} THEN 'LOW'
-                        ELSE 'HIGH' END AS current_share
-                        FROM {VIEW_NAME_RE_SHARE_EXT_TRADE} t
-                        WHERE t.region = 'DE'
-                        AND t.resolution = 'quarterhour'),
-                     events AS (
-                        SELECT s.unix_timestamp_ms, s.region, s.resolution,
-                           (CASE /* Guaranteed that a START is at the beginning of a period but not that an END is at the finish */
-                                WHEN (LAG(current_share, 1, 'HIGH') OVER w = 'HIGH' AND current_share = 'LOW') THEN 'START'
-                                WHEN (LAG(current_share, 1, 'HIGH') OVER w = 'LOW' AND current_share = 'HIGH') THEN 'END'
-                                ELSE 'nothing' END) AS event_bucket
-                        FROM share_categories s
-                        WINDOW w AS ( ORDER BY s.unix_timestamp_ms ASC )),
-                     cleaned AS (
-                            SELECT *
-                                FROM events
-                                WHERE event_bucket != 'nothing'),
-                     start_end AS (
-                        SELECT *,
-                           LEAD(c.unix_timestamp_ms, 1, ( SELECT max(latest.unix_timestamp_ms) FROM cleaned latest )) 
-                           OVER (ORDER BY c.unix_timestamp_ms ASC
-                           ) AS end_time
-                        FROM cleaned c),
-                     matches AS (
-                        SELECT *, se.unix_timestamp_ms AS start_time, se.end_time - se.unix_timestamp_ms AS duration
-                        FROM start_end se
-                        WHERE se.end_time - se.unix_timestamp_ms >= 1000 * 60 * 60 * 24 * 1::BIGINT
-                          AND se.event_bucket = 'START'),
-                     dunkelflauten AS ( -- 1 sec for this table
-                        SELECT start_time, end_time, duration
-                        FROM matches),
-                     extent_revenue AS ( -- 17 seconds for this table
-                        SELECT pd.*,
-                           (
-                               SELECT SUM(p.res_load)   -- quarterhour resolution: MWh
-                                   FROM prices p
-                                   WHERE p.unix_timestamp_ms 
-                                   BETWEEN pd.start_time AND pd.end_time) AS extent,
-                           (
-                               SELECT SUM(p.res_load * p.ger_lux)  -- MWh * €/MWh = €
-                                   FROM prices p
-                                   WHERE p.unix_timestamp_ms 
-                                   BETWEEN pd.start_time AND pd.end_time) AS res_load_revenue_during_df,
-                           (
-                               SELECT SUM(p.res_load)
-                                   FROM prices p
-                                   WHERE p.unix_timestamp_ms
-                                   BETWEEN pd.start_time - 1000 *60 *60 *24 *7::BIGINT AND pd.start_time) AS extent_week_before,
-                           (
-                               SELECT SUM(p.res_load * p.ger_lux)
-                                   FROM prices p
-                                   WHERE p.unix_timestamp_ms
-                                   BETWEEN pd.start_time - 1000 *60 *60 *24 *7::BIGINT AND pd.start_time) AS res_load_revenue_before_df,
-                           (
-                               SELECT SUM(p.res_load)
-                                   FROM prices p
-                                   WHERE p.unix_timestamp_ms
-                                   BETWEEN pd.end_time AND pd.end_time + 1000 *60 *60 *24 *7::BIGINT) AS extent_week_after,
-                           (
-                               SELECT SUM(p.res_load * p.ger_lux)
-                                   FROM prices p
-                                   WHERE p.unix_timestamp_ms
-                                   BETWEEN pd.end_time AND pd.end_time + 1000 *60 *60 *24 *7::BIGINT) AS res_load_revenue_after_df
-                                FROM dunkelflauten pd
-                                
-                        ), dunkelflauten_prices AS ( --38 secs for this table
-                        SELECT er.*,
-                           (er.res_load_revenue_during_df / er.extent)::DECIMAL(6, 2) AS avg_weighted_price_during_dunkelflaute,
-                           (er.res_load_revenue_before_df / er.extent_week_before)::DECIMAL(6, 2) AS avg_weighted_price_before_dunkelflaute,
-                           (er.res_load_revenue_after_df / er.extent_week_after)::DECIMAL(6, 2) AS avg_weighted_price_after_dunkelflaute,
-                           (
-                               SELECT AVG(during_df.ger_lux)
-                                   FROM prices during_df
-                                   WHERE during_df.unix_timestamp_ms
-                                             BETWEEN er.start_time AND er.start_time -- <=> value >= low AND value <= high
-                           )::DECIMAL(6, 2) AS avg_price_during_dunkelflaute,
-                           (
-                               SELECT AVG(week_before_df.ger_lux)
-                                   FROM prices week_before_df
-                                   WHERE week_before_df.unix_timestamp_ms
-                                             BETWEEN er.start_time - 1000 * 60 * 60 * 24 * 7::BIGINT AND er.start_time -- <=> value >= low AND value <= high
-                           )::DECIMAL(6, 2) AS avg_price_week_before_dunkelflaute,
-                           (
-                               SELECT AVG(week_after_df.ger_lux)
-                                   FROM prices week_after_df
-                                   WHERE week_after_df.unix_timestamp_ms
-                                             -- 1 or 7 days because in between those it takes the other more expensive Dunkelflauten periods into account too
-                                             BETWEEN er.end_time AND er.end_time + 1000 * 60 * 60 * 24 * 7::BIGINT
-                            )::DECIMAL(6, 2)  AS avg_price_week_after_dunkelflaute
-                        FROM extent_revenue er
-                        WHERE er.res_load_revenue_during_df IS NOT NULL
-                        
-                    ), price_delta AS ( --1 min 3 s for this table
-                            SELECT dp.*,
-                                   dp.avg_price_during_dunkelflaute
-                                       - (dp.avg_price_week_before_dunkelflaute + dp.avg_price_week_after_dunkelflaute) / 2
-                                       ::DECIMAL(7, 3) AS price_increase_during_df,
-                                   ((dp.avg_price_during_dunkelflaute
-                                       / ((dp.avg_price_week_before_dunkelflaute + dp.avg_price_week_after_dunkelflaute) / 2))
-                                       -1)*100
-                                       ::DECIMAL(7, 3) AS relative_price_increase_during_df,
-                                   dp.avg_weighted_price_during_dunkelflaute
-                                       - (dp.avg_weighted_price_before_dunkelflaute + dp.avg_weighted_price_after_dunkelflaute) / 2
-                                       AS price_increase_during_df_weighted,
-                                   ((dp.avg_weighted_price_during_dunkelflaute
-                                       / ((dp.avg_weighted_price_before_dunkelflaute + dp.avg_weighted_price_after_dunkelflaute) / 2))
-                                       -1)*100
-                                       ::DECIMAL(7, 3) AS relative_weighted_price_increase_during_df,
-                                   dp.avg_weighted_price_during_dunkelflaute
-                                       > LEAST(dp.avg_price_week_before_dunkelflaute, dp.avg_price_week_after_dunkelflaute)
-                                       AND dp.avg_weighted_price_during_dunkelflaute
-                                               < GREATEST(dp.avg_price_week_before_dunkelflaute, dp.avg_price_week_after_dunkelflaute)
-                                       AS dp_in_before_after_range
-                                FROM dunkelflauten_prices dp
-                
-                    ) SELECT *, extent * price_increase_during_df_weighted ::DECIMAL(14, 2) AS dunkelflauten_cost,
-                             extract(DOW FROM (to_timestamp((start_time + end_time) / 2 / 1000) 
-                                AT TIME ZONE 'Europe/Berlin')) AS day_of_week,
-                             extract(MONTH FROM (to_timestamp((start_time + end_time) / 2 / 1000) 
-                                AT TIME ZONE 'Europe/Berlin')) AS month,
-                             extract(YEAR FROM (to_timestamp((start_time + end_time) / 2 / 1000)  
-                                AT TIME ZONE 'Europe/Berlin')) AS year,
-                             duration as duration_ms,
-                             (duration / (1000*60*60*24.0))::Decimal(5, 2) AS duration_days
-                    FROM price_delta
+WITH prices AS (
+    SELECT sdc.unix_timestamp_ms, sdc.region, sdc.resolution, sdc.market_price_ger_lux AS ger_lux,
+           sdc.power_consumption_residual_load AS res_load, sdc.power_consumption_total,
+           CASE WHEN sdc.resolution='quarterhour' THEN sdc.power_consumption_residual_load * 4
+               ELSE sdc.power_consumption_residual_load END AS res_load_power
+        FROM {TABLE_NAME_SMARD} sdc
+        WHERE sdc.resolution = 'quarterhour'
+          AND sdc.region = 'DE'
+          AND sdc.market_price_ger_lux IS NOT NULL -- Prices are null up to 1.10.2018
+    -- Without throwing out NULL rows: 25 seconds with t.resolution='day'
+    -- With IS NOT NULL: 12 seconds
+),
+     share_categories AS (
+        SELECT t.unix_timestamp_ms, t.region, t.resolution, t.share_of_renewable_energies_computed,
+        CASE
+        WHEN t.share_of_renewable_energies_computed <= {threshold} THEN 'LOW'
+        ELSE 'HIGH' END AS current_share
+        FROM {VIEW_NAME_RE_SHARE_EXT_TRADE} t
+        WHERE t.region = 'DE'
+        AND t.resolution = 'quarterhour'
+        AND t.unix_timestamp_ms > 1538344800000 -- only dunkelflauten after Monday, 1. October 2018 00:00:00 GMT+2
+         -- 7 rows (32 s) versus 28 rows with null (1m27s) @0.22 threshold
+    ), events AS (
+        SELECT s.unix_timestamp_ms, s.region, s.resolution,
+           (CASE /* Guaranteed that a START is at the beginning of a period but not that an END is at the finish */
+                WHEN (LAG(current_share, 1, 'HIGH') OVER w = 'HIGH' AND current_share = 'LOW') THEN 'START'
+                WHEN (LAG(current_share, 1, 'HIGH') OVER w = 'LOW' AND current_share = 'HIGH') THEN 'END'
+                ELSE 'nothing' END) AS event_bucket
+        FROM share_categories s
+        WINDOW w AS ( ORDER BY s.unix_timestamp_ms ASC )),
+     cleaned AS (
+            SELECT *
+                FROM events
+                WHERE event_bucket != 'nothing'),
+     start_end AS (
+        SELECT *,
+           LEAD(c.unix_timestamp_ms, 1, ( SELECT max(latest.unix_timestamp_ms) FROM cleaned latest ))
+           OVER (ORDER BY c.unix_timestamp_ms ASC
+           ) AS end_time
+        FROM cleaned c),
+     matches AS (
+        SELECT *, se.unix_timestamp_ms AS start_time, se.end_time - se.unix_timestamp_ms AS duration
+        FROM start_end se
+        WHERE se.end_time - se.unix_timestamp_ms >= 1000 * 60 * 60 * 24 * 1::BIGINT
+          AND se.event_bucket = 'START'),
+     dunkelflauten AS ( -- 1 sec for this table
+        SELECT start_time, end_time, duration
+        FROM matches
+    ), res_load AS ( -- 17 seconds for this table
+        SELECT pd.*,
+            (
+               SELECT round( SUM(p.res_load) / (pd.duration/(1000*60*60::BIGINT)), 2)  -- MW
+                   FROM prices p
+                   WHERE p.unix_timestamp_ms BETWEEN pd.start_time AND pd.end_time) AS avg_res_load_power_during_df,
+           (
+               SELECT SUM(p.res_load)
+                   FROM prices p
+                   WHERE p.unix_timestamp_ms
+                   BETWEEN pd.start_time - 1000 *60 *60 *24 *7::BIGINT AND pd.start_time) AS res_load_week_before,  -- MWh
+           (
+               SELECT SUM(p.res_load)
+                   FROM prices p
+                   WHERE p.unix_timestamp_ms
+                   BETWEEN pd.end_time AND pd.end_time + 1000 *60 *60 *24 *7::BIGINT) AS res_load_week_after,  -- MWh
+           (
+               SELECT CASE WHEN p.resolution='quarterhour'
+                            THEN peak * 4 ELSE peak * 1 END  -- MWh in MW conversion
+                   FROM (SELECT resolution, MAX(res_load) as peak
+                            FROM prices
+                            WHERE unix_timestamp_ms
+                                BETWEEN pd.start_time AND pd.end_time
+                            GROUP BY resolution
+                             ) p
+                   ) AS peak_res_load_power_during_df,
+           (
+               SELECT SUM(p.power_consumption_total)
+                   FROM prices p
+                   WHERE p.unix_timestamp_ms
+                   BETWEEN pd.start_time AND pd.end_time) AS electric_energy_consumption_during_df
+                FROM dunkelflauten pd
+
+        ), dunkelflauten_prices AS ( --38 secs for this table
+            SELECT rl.*,
+                round( (rl.res_load_week_before + rl.res_load_week_after) / (2 *7*24), 2) AS avg_res_load_power_before_after,
+                (
+                    SELECT round( SUM(p.power_consumption_total * p.ger_lux) / SUM(p.power_consumption_total), 2)
+                       FROM prices p
+                       WHERE p.unix_timestamp_ms
+                       BETWEEN rl.start_time AND rl.end_time) AS avg_weighted_price_during_df,
+                (
+                    SELECT SUM(p.power_consumption_total * p.ger_lux) / SUM(p.power_consumption_total)
+                       FROM prices p
+                       WHERE p.unix_timestamp_ms
+                       BETWEEN rl.start_time - 1000 *60 *60 *24 *7::BIGINT AND rl.start_time) AS avg_weighted_price_week_before_df,
+                (
+                    SELECT SUM(p.power_consumption_total * p.ger_lux) / SUM(p.power_consumption_total)
+                       FROM prices p
+                       WHERE p.unix_timestamp_ms
+                       BETWEEN rl.end_time AND rl.end_time + 1000 *60 *60 *24 *7::BIGINT) AS avg_weighted_price_week_after_df,
+                (
+                    SELECT AVG(during_df.ger_lux)
+                        FROM prices during_df
+                        WHERE during_df.unix_timestamp_ms
+                        BETWEEN rl.start_time AND rl.start_time -- <=> value >= low AND value <= high
+                )::DECIMAL(6, 2) AS avg_price_during_dunkelflaute,
+                (
+                    SELECT AVG(week_before_df.ger_lux)
+                       FROM prices week_before_df
+                       WHERE week_before_df.unix_timestamp_ms
+                                 BETWEEN rl.start_time - 1000 * 60 * 60 * 24 * 7::BIGINT AND rl.start_time -- <=> value >= low AND value <= high
+                )::DECIMAL(6, 2) AS avg_price_week_before_dunkelflaute,
+                (
+                   SELECT AVG(week_after_df.ger_lux)
+                       FROM prices week_after_df
+                       WHERE week_after_df.unix_timestamp_ms
+                                 -- 1 or 7 days because in between those it takes the other more expensive Dunkelflauten periods into account too
+                                 BETWEEN rl.end_time AND rl.end_time + 1000 * 60 * 60 * 24 * 7::BIGINT
+                )::DECIMAL(6, 2)  AS avg_price_week_after_dunkelflaute
+            FROM res_load rl
+
+        ), price_delta AS ( --1 min 3 s for this table
+            SELECT dp.*,
+                (
+                   SELECT SUM(during_df.res_load)
+                       FROM prices during_df
+                       WHERE during_df.unix_timestamp_ms
+                           BETWEEN dp.start_time AND dp.end_time
+                               AND during_df.res_load_power > dp.avg_res_load_power_before_after
+                )::DECIMAL(15, 2)  AS extent,
+                (
+                   SELECT SUM(during_df.res_load * during_df.ger_lux)
+                       FROM prices during_df
+                       WHERE during_df.unix_timestamp_ms
+                           BETWEEN dp.start_time AND dp.end_time
+                               AND during_df.res_load_power > dp.avg_res_load_power_before_after
+                )::DECIMAL(15, 2)  AS storage_made_electricity_value,
+               dp.avg_price_during_dunkelflaute
+                   - (dp.avg_price_week_before_dunkelflaute + dp.avg_price_week_after_dunkelflaute) / 2
+                   ::DECIMAL(7, 3) AS price_increase_during_df,
+               round(((dp.avg_price_during_dunkelflaute
+                   / ((dp.avg_price_week_before_dunkelflaute + dp.avg_price_week_after_dunkelflaute) / 2))
+                   -1)*100)
+                   ::DECIMAL(7, 3) AS relative_price_increase_during_df,
+               round(dp.avg_weighted_price_during_df
+                   - (dp.avg_weighted_price_week_before_df + dp.avg_weighted_price_week_after_df) / 2, 2)
+                   AS price_increase_during_df_weighted,
+               round(((dp.avg_weighted_price_during_df
+                   / ((dp.avg_weighted_price_week_before_df + dp.avg_weighted_price_week_after_df) / 2))
+                   -1)*100)
+                   ::DECIMAL(7, 3) AS relative_price_increase_during_df_weighted,
+               dp.avg_weighted_price_during_df
+                   > LEAST(dp.avg_price_week_before_dunkelflaute, dp.avg_price_week_after_dunkelflaute)
+                   AND dp.avg_weighted_price_during_df
+                           < GREATEST(dp.avg_price_week_before_dunkelflaute, dp.avg_price_week_after_dunkelflaute)
+                   AS dp_in_before_after_range
+            FROM dunkelflauten_prices dp
+
+        ) SELECT *,
+                 round(electric_energy_consumption_during_df * price_increase_during_df, 2) ::DECIMAL(14, 2) AS dunkelflauten_cost,
+                 round(electric_energy_consumption_during_df * price_increase_during_df_weighted, 2) ::DECIMAL(14, 2) AS dunkelflauten_cost_weighted,
+                 extract(ISODOW FROM (to_timestamp((start_time + end_time) / 2 / 1000)
+                    AT TIME ZONE 'Europe/Berlin')) AS day_of_week,
+                 extract(DAY FROM (to_timestamp((start_time + end_time) / 2 / 1000)
+                    AT TIME ZONE 'Europe/Berlin')) AS day_of_month,
+                 extract(MONTH FROM (to_timestamp((start_time + end_time) / 2 / 1000)
+                    AT TIME ZONE 'Europe/Berlin')) AS month,
+                 extract(YEAR FROM (to_timestamp((start_time + end_time) / 2 / 1000)
+                    AT TIME ZONE 'Europe/Berlin')) AS year,
+                 duration as duration_ms,
+                 (duration / (1000*60*60*24.0))::Decimal(5, 2) AS duration_days, 
+                 (SELECT round(avg(weather.repi_30avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS hourly_repi_30avg,
+                 (SELECT round(avg(weather.repi_30max), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS hourly_repi_30max,
+                 (SELECT round(avg(weather.repi_30mix), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS hourly_repi_30mix,
+                (SELECT round(avg(weather.wind_speed_100_avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS wind_speed_100_avg,
+                (SELECT round(avg(weather.diffuse_radiation_avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS diffuse_radiation_avg,
+                (SELECT round(avg(weather.direct_radiation_avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS direct_radiation_avg
+        FROM price_delta
 """
 
 
-historical_weather_aggregation = """
--- SELECT DISTINCT lat, lng from historical_weather_data
-/*
- 47.97890853881836,7.176079750061035
-47.97890853881836,10.01661205291748
-47.97890853881836,13.006645202636719
-50.017574310302734,7.068062782287598
-50.017574310302734,10.052355766296387
-50.017574310302734,12.8795804977417
-51.985939025878906,6.935780048370361
-51.985939025878906,10.073394775390625
-51.985939025878906,13.04587173461914
-54.02460479736328,6.976743698120117
-54.02460479736328,9.94186019897461
-54.02460479736328,13.081395149230957
- */
- 
-SELECT *  from historical_weather_data
+# Total: 4 rows, 3 columns as a grid over Germany
+#     47.97890853881836,7.176079750061035
+#     47.97890853881836,10.01661205291748
+#     47.97890853881836,13.006645202636719
+#     50.017574310302734,7.068062782287598
+#     50.017574310302734,10.052355766296387
+#     50.017574310302734,12.8795804977417
+#     51.985939025878906,6.935780048370361
+#     51.985939025878906,10.073394775390625
+#     51.985939025878906,13.04587173461914
+#     Only the 3 southern rows for radiation (PV Solar)
+#
+#     51.985939025878906,6.935780048370361
+#     51.985939025878906,10.073394775390625
+#     51.985939025878906,13.04587173461914
+#     54.02460479736328,6.976743698120117
+#     54.02460479736328,9.94186019897461
+#     54.02460479736328,13.081395149230957
+#     Only the 2 northern rows for wind
+historical_weather_agg_view_sql =  f""" -- # Unfortunately inserting into a view is not possi 
+WITH radiation AS (
+    SELECT weather.date AS date,
+           min(direct_radiation) AS direct_radiation_min,
+           avg(direct_radiation)::DECIMAL(6, 3) AS direct_radiation_avg,
+           max(direct_radiation) AS direct_radiation_max,
+           min(diffuse_radiation) AS diffuse_radiation_min,
+           avg(diffuse_radiation)::DECIMAL(6, 3) AS diffuse_radiation_avg,
+           max(diffuse_radiation) AS diffuse_radiation_max,
+           min(temperature_2m) AS temp2m_min,
+           avg(temperature_2m)::DECIMAL(6, 3) AS temp2m_avg,
+           max(temperature_2m) AS temp2m_max
+    FROM {TABLE_NAME_OPEN_METEO} weather
+    WHERE weather.lat < 52
+    GROUP BY weather.date
+), wind_dir_count AS ( -- count 12 locations by 8 weather direction
+    SELECT COUNT(*) FILTER (WHERE 337.5 < wind_direction_100m AND wind_direction_100m <= 22.5) AS N,
+           COUNT(*) FILTER (WHERE 22.5 < wind_direction_100m AND wind_direction_100m <= 67.5) AS NE,
+           COUNT(*) FILTER (WHERE 67.5 < wind_direction_100m AND wind_direction_100m <= 112.5) AS E,
+           COUNT(*) FILTER (WHERE 112.5 < wind_direction_100m AND wind_direction_100m <= 157.5) AS SE,
+           COUNT(*) FILTER (WHERE 157.5 < wind_direction_100m AND wind_direction_100m <= 202.5) AS S,
+           COUNT(*) FILTER (WHERE 202.5 < wind_direction_100m AND wind_direction_100m <= 247.5) AS SW,
+           COUNT(*) FILTER (WHERE 247.5 < wind_direction_100m AND wind_direction_100m <= 292.5) AS W,
+           COUNT(*) FILTER (WHERE 292.5 < wind_direction_100m AND wind_direction_100m <= 337.5) AS NW,
+           weather.date AS date
+        FROM {TABLE_NAME_OPEN_METEO} weather
+        GROUP BY weather.date
+), wind_dir AS (
+    SELECT date, CASE
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = n THEN 'north'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = ne THEN 'north_east'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = e THEN 'east'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = se THEN 'south_east'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = s THEN 'south'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = sw THEN 'south_west'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = w THEN 'west'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = nw THEN 'north_west'
+        ELSE 'unknown' END AS wind_direction,
+        round(
+        	GREATEST(n, ne, e, se, s, sw, w, nw) /12.0
+        	, 2
+        )::DECIMAL(3, 2) AS wind_dir_uniformity
+    FROM wind_dir_count
+), wind AS (
+    SELECT weather.date AS date,
+           min(wind_speed_10m) AS wind_speed_10_min,
+           avg(wind_speed_10m)::DECIMAL(6, 3) AS wind_speed_10_avg,
+           max(wind_speed_10m) AS wind_speed_10_max,
+           min(wind_speed_100m) AS wind_speed_100min,
+           avg(wind_speed_100m)::DECIMAL(6, 3) AS wind_speed_100_avg,
+           max(wind_speed_100m) AS wind_speed_100_max
+    FROM {TABLE_NAME_OPEN_METEO} weather
+    WHERE weather.lat > 51
+    GROUP BY weather.date
+), 
+
+-- code duplication to avoid a whole table (but recommended in the future) (f-string didn't work because of that)
+radiation_daily AS (
+    SELECT DATE_TRUNC('day', weather.date) AS date,
+           min(direct_radiation) AS direct_radiation_min,
+           avg(direct_radiation)::DECIMAL(6, 3) AS direct_radiation_avg,
+           max(direct_radiation) AS direct_radiation_max,
+           min(diffuse_radiation) AS diffuse_radiation_min,
+           avg(diffuse_radiation)::DECIMAL(6, 3) AS diffuse_radiation_avg,
+           max(diffuse_radiation) AS diffuse_radiation_max,
+           min(temperature_2m) AS temp2m_min,
+           avg(temperature_2m)::DECIMAL(6, 3) AS temp2m_avg,
+           max(temperature_2m) AS temp2m_max
+    FROM {TABLE_NAME_OPEN_METEO} weather
+    WHERE weather.lat < 52
+    GROUP BY DATE_TRUNC('day', weather.date)
+), wind_dir_count_daily AS ( -- count 12 locations by 8 weather direction
+    SELECT COUNT(*) FILTER (WHERE 337.5 < wind_direction_100m AND wind_direction_100m <= 22.5) AS N,
+           COUNT(*) FILTER (WHERE 22.5 < wind_direction_100m AND wind_direction_100m <= 67.5) AS NE,
+           COUNT(*) FILTER (WHERE 67.5 < wind_direction_100m AND wind_direction_100m <= 112.5) AS E,
+           COUNT(*) FILTER (WHERE 112.5 < wind_direction_100m AND wind_direction_100m <= 157.5) AS SE,
+           COUNT(*) FILTER (WHERE 157.5 < wind_direction_100m AND wind_direction_100m <= 202.5) AS S,
+           COUNT(*) FILTER (WHERE 202.5 < wind_direction_100m AND wind_direction_100m <= 247.5) AS SW,
+           COUNT(*) FILTER (WHERE 247.5 < wind_direction_100m AND wind_direction_100m <= 292.5) AS W,
+           COUNT(*) FILTER (WHERE 292.5 < wind_direction_100m AND wind_direction_100m <= 337.5) AS NW,
+           DATE_TRUNC('day', weather.date) AS date
+        FROM {TABLE_NAME_OPEN_METEO} weather
+        GROUP BY DATE_TRUNC('day', weather.date)
+), wind_dir_daily AS (
+    SELECT date, CASE
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = n THEN 'north'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = ne THEN 'north_east'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = e THEN 'east'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = se THEN 'south_east'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = s THEN 'south'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = sw THEN 'south_west'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = w THEN 'west'
+        WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = nw THEN 'north_west'
+        ELSE 'unknown' END AS wind_direction,
+        round(
+        	GREATEST(n, ne, e, se, s, sw, w, nw) /(12.0*24), 2
+        )::DECIMAL(3, 2) AS wind_dir_uniformity
+    FROM wind_dir_count_daily
+), wind_daily AS (
+    SELECT DATE_TRUNC('day', weather.date) AS date,
+           min(wind_speed_10m) AS wind_speed_10_min,
+           avg(wind_speed_10m)::DECIMAL(6, 3) AS wind_speed_10_avg,
+           max(wind_speed_10m) AS wind_speed_10_max,
+           min(wind_speed_100m) AS wind_speed_100min,
+           avg(wind_speed_100m)::DECIMAL(6, 3) AS wind_speed_100_avg,
+           max(wind_speed_100m) AS wind_speed_100_max
+    FROM {TABLE_NAME_OPEN_METEO} weather
+    WHERE weather.lat > 51
+    GROUP BY DATE_TRUNC('day', weather.date)
+)
+
+SELECT *, 'hour' AS resolution, 
+		round( ( wind.wind_speed_100_avg
+			+ ( radiation.direct_radiation_avg )/30
+			+ ( radiation.diffuse_radiation_avg )/30
+		)::Decimal(8, 4), 2 ) AS repi_30avg,  -- renewable energy production index
+		round( ( wind.wind_speed_100_max 
+			+ ( radiation.direct_radiation_max )/30
+			+ ( radiation.diffuse_radiation_max )/30
+		)::Decimal(8, 4), 2 ) AS repi_30max,
+		round( ( wind.wind_speed_100_max 
+			+ ( radiation.direct_radiation_avg )/30
+			+ ( radiation.diffuse_radiation_avg )/30
+		)::Decimal(8, 4), 2 ) AS repi_30mix
+FROM radiation
+NATURAL JOIN wind
+NATURAL JOIN wind_dir
+
+UNION ALL 
+
+SELECT *, 'day' AS resolution, 
+		-- solar: 101 GW, wind: 75 GW   => 101/176 = 57%
+		-- max /40: 20.21,19.75, 8.83           => (19.75+8.83)/(20.21+19.75+8.83) ≈ 58.6%
+		-- avg /20:  6.87, 4.08, 2.75   
+		-- => solar has a lower capacity factor but more installed capacity (hard to account for)
+		round( ( wind_daily.wind_speed_100_avg
+			+ ( radiation_daily.direct_radiation_avg )/30
+			+ ( radiation_daily.diffuse_radiation_avg )/30
+		)::Decimal(8, 4), 2 ) AS repi_30avg,
+		round( ( wind_daily.wind_speed_100_max
+			+ ( radiation_daily.direct_radiation_max )/30
+			+ ( radiation_daily.diffuse_radiation_max )/30
+		)::Decimal(8, 4), 2 ) AS repi_30max,
+		round( ( wind_daily.wind_speed_100_max
+			+ ( radiation_daily.direct_radiation_avg )/30
+			+ ( radiation_daily.diffuse_radiation_avg )/30
+		)::Decimal(8, 4), 2 ) AS repi_30mix
+FROM radiation_daily
+NATURAL JOIN wind_daily
+NATURAL JOIN wind_dir_daily
 """
 
 

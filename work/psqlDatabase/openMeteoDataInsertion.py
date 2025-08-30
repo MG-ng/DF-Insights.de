@@ -3,11 +3,14 @@ import pandas as pd
 import requests_cache
 from retry_requests import retry
 from sqlalchemy import create_engine
-from Helper import FILTER, TABLE_NAME_SMARD, DB_PARAMS, FilterTranslations
+from sqlalchemy.util import ellipses_string
+
+from ..Helper import FILTER, TABLE_NAME_SMARD, DB_PARAMS, FilterTranslations, VIEW_NAME_HISTORICAL_WEATHER_AGG
 from computedViews import create_computed_view
+from psqlDatabase.viewsSQL import historical_weather_agg_view_sql
 
 
-"""
+""" 12 locations from NW to SE (top left to bottom right)
 54, 7
 54, 10
 54, 13
@@ -36,19 +39,18 @@ openmeteo = openmeteo_requests.Client( session = retry_session )
 # The order of variables in hourly or daily is important to assign them correctly below
 url = "https://archive-api.open-meteo.com/v1/archive"
 
-for year in [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]:
+for year in [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]:
 	params = {
 		"latitude": [ 54, 54, 54, 52, 52, 52, 50, 50, 50, 48, 48, 48 ],
 		"longitude": [ 7, 10, 13, 7, 10, 13, 7, 10, 13, 7, 10, 13 ],
-		"start_date": 	str(year-1) + "-01-01",
-		"end_date": 	str(year) + "-01-01",
+		"start_date": 	str(year) + "-01-01",
+		"end_date": 	str(year) + "-12-31" if year!=2025 else (str(year) + "-08-01"),  # More Weather than SMARD data needed
 		"hourly": [ "temperature_2m", "wind_speed_10m", "wind_speed_100m", "wind_direction_10m", "wind_direction_100m",
 					"direct_radiation", "diffuse_radiation" ],
 		"timezone": [ "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin",
 					  "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin",
 					  "Europe/Berlin" ],
 		"wind_speed_unit": "ms",
-		"timeformat": "unixtime"
 	}
 	responses = openmeteo.weather_api( url, params = params )
 
@@ -108,13 +110,13 @@ for year in [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]:
 
 		hourly_dataframe.set_index( ['date', 'lat', 'lng', 'temporal_resolution' ] )
 
-		hourly_dataframe.to_sql('historical_weather_data', engine, if_exists='append' )
+		hourly_dataframe.to_sql('historical_weather_data_raw', engine, if_exists='append' )
 
 
 
 
 
 
-create_computed_view(DB_PARAMS, viewName, viewSQL)
+# create_computed_view(DB_PARAMS, VIEW_NAME_HISTORICAL_WEATHER_AGG, historical_weather_agg_view_sql)
 
 

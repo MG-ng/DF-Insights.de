@@ -17,30 +17,34 @@ refreshTurboStops(10)
 
 const dunkelflauten_features = [
     { value: "start_time", text: "Start Time" },
-    { value: "end_time", text: "End Time" },
-    { value: "duration_ms", text: "Duration in Milliseconds" },
     { value: "duration_days", text: "Duration in days" },
-    { value: "extent", text: "Extent" },
-    { value: "res_load_revenue_during_df", text: "Residual Load Revenue During Dunkelflaute" },
-    { value: "extent_week_before", text: "Extent of Residual Load in Week Before Dunkelflaute" },
-    { value: "res_load_revenue_before_df", text: "Residual Load Revenue in Week Before DF" },
-    { value: "extent_week_after", text: "Extent of Residual Load in Week After Dunkelflaute" },
-    { value: "res_load_revenue_after_df", text: "Residual Load Revenue in Week After DF" },
-    { value: "avg_weighted_price_during_dunkelflaute", text: "Average with Residual Load Weighted Price During DF" },
-    { value: "avg_weighted_price_before_dunkelflaute", text: "Average with Residual Load Weighted Price in Week Before Dunkelflaute" },
-    { value: "avg_weighted_price_after_dunkelflaute", text: "Average with Residual Load Weighted Price in Week After Dunkelflaute" },
-    { value: "avg_price_during_dunkelflaute", text: "Average Price During DF in €/MWh" },
-    { value: "avg_price_week_before_dunkelflaute", text: "Average Price During Week Before DF" },
-    { value: "avg_price_week_after_dunkelflaute", text: "Average Price During Week After DF" },
-    { value: "price_increase_during_df", text: "Average Price Increase During Dunkelflaute in €/Mwh" },
-    { value: "relative_price_increase_during_df", text: "Average Relative Price Increase During Dunkelflaute in %" },
-    { value: "price_increase_during_df_weighted", text: "Avg with ResLoad Weighted Price Increase During DF in €/Mwh" },
-    { value: "relative_weighted_price_increase_during_df", text: "Avg with ResLoad Weighted Relative Price Increase During DF in %" },
-    { value: "dp_in_before_after_range", text: "Avg Price During Dunkelflaute in Range of Price Before and After" },
-    { value: "dunkelflauten_cost", text: "Cost of Dunkelflaute in €/MWh Price Increase * MWh Extent" },
+    { value: "electric_energy_consumption_during_df", text: "Electric Energy Consumption during DF in MWh" },
+    { value: "extent", text: "Extent (see Usage)" },
+    { value: "storage_made_electricity_value", text: "Potential Value of Electricity specifically made during DF" },
+    { value: "peak_res_load_power_during_df", text: "Peak Residual Load Power during DF in MW" },
+    { value: "avg_res_load_power_during_df", text: "Avg Residual Load Power during DF in MW" },
+    { value: "avg_res_load_power_before_after", text: "Residual Load Power avg(week before and after the DF) in MW" },
+    { value: "avg_weighted_price_during_df", text: "Average with Total Consumption Weighted Price during DF" },
+    { value: "avg_price_during_dunkelflaute", text: "Average Price during DF in €/MWh" },
+    { value: "avg_price_week_before_dunkelflaute", text: "Average Price during Week Before DF" },
+    { value: "avg_price_week_after_dunkelflaute", text: "Average Price during Week After DF" },
+    { value: "price_increase_during_df", text: "Average Price Increase during Dunkelflaute in €/MWh" },
+    { value: "relative_price_increase_during_df", text: "Average Relative Price Increase during Dunkelflaute in %" },
+    { value: "price_increase_during_df_weighted", text: "Avg with Total Consumption Weighted Price Increase during DF in €/MWh" },
+    { value: "relative_price_increase_during_df_weighted", text: "Avg with Total Consumption Weighted Relative Price Increase during DF in %" },
+    { value: "dp_in_before_after_range", text: "Avg Price during Dunkelflaute in Range of Price Before and After" },
+    { value: "dunkelflauten_cost", text: "Cost of Dunkelflaute in €/MWh Price Increase * Total Consumption during DF in MWh" },
+    { value: "dunkelflauten_cost_weighted", text: "Cost of Dunkelflaute in € with Total Cons. Weighted Price Inc. * Total Cons. during DF" },
     { value: "day_of_week", text: "Day of Week of Dunkelflauten Mean Incidence" },
+    { value: "day_of_month", text: "Day of the Month of Dunkelflauten Mean Incidence" },
     { value: "month", text: "Month of Dunkelflauten Mean Incidence" },
     { value: "year", text: "Year of Dunkelflauten Mean Incidence" },
+    { value: "hourly_repi_30avg", text: "Hourly REPI /30 Average" },
+    { value: "hourly_repi_30max", text: "Hourly REPI /30 Maximum" },
+    { value: "hourly_repi_30mix", text: "Hourly REPI: Wind Max and /30 Solar Avg" },
+    { value: "wind_speed_100_avg", text: "Avg Wind Speed in 100m Height at 6 spots across GER during DF" },
+    { value: "diffuse_radiation_avg", text: "Avg Diffuse Radiation at 9 spots across GER during DF" },
+    { value: "direct_radiation_avg", text: "Avg Direct Radiation at 9 spots across GER during DF" },
 ]
 
 function populateSelect(selectId, selectedValue = '') {
@@ -61,9 +65,9 @@ populateSelect('colorSelect', 'price_increase_during_df_weighted')
 
 let bubbleChart;
 
-let colorValues
-let minColorValue
-let maxColorValue
+function showDF( data ) {
+    alert(data)
+}
 
 // Initialize the chart
 function createChart() {
@@ -108,12 +112,18 @@ function createChart() {
                 minSize: 10,
                 maxSize: 50,
                 tooltip: {
+                    useHTML: true,
+                    hideDelay: 1500,
+                    style: { pointerEvents: 'auto' },
                     headerFormat: '<b>{series.name}</b><br>',
                     pointFormat: `Start: <b>{point.name}</b><br>
-                        ${formatColumnName(xColumn)}: <b>{point.x}</b><br>
-                        ${formatColumnName(yColumn)}: <b>{point.y}</b><br>
-                        ${formatColumnName(sizeColumn)}: <b>{point.z}</b><br>
-                        Duration in days: <b>{point.durationDays}</b><br>`
+                        ${formatColumnName(xColumn)}:    &#9;<b>{point.x}</b><br>
+                        ${formatColumnName(yColumn)}:    &#9;<b>{point.y}</b><br>
+                        ${formatColumnName(sizeColumn)}: &#9;<b>{point.z}</b><br>
+                        Duration in days: <b>{point.durationDays}</b> &nbsp;&nbsp;&nbsp; 
+                        <!-- TODO: Make this work a href="#" onclick="(function(){
+                            alert('Hello World');
+                        })()">See More</a--><br>`
                 },
                 animation: {
                     duration: 1000,

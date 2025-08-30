@@ -4,6 +4,7 @@ from enum import Enum, unique
 
 
 TABLE_NAME_SMARD = 'smard_data_collection'
+TABLE_NAME_OPEN_METEO = 'historical_weather_data_raw'
 # Der Baustein Gesamt (Netzlast) resultiert aus der Nettostromerzeugung, abzüglich Export-Übertragungsleistung,
 # zuzüglich Import-Übertragungsleistung und abzüglich der Einspeicherleistung von Pumpspeicherkraftwerken
 # – Datenlieferung erfolgt mit spätestens einer Stunde Verzögerung [Quelle: ENTSO-E].
@@ -11,7 +12,7 @@ TABLE_NAME_SMARD = 'smard_data_collection'
 VIEW_NAME_RE_SHARE_EXT_TRADE = 'computed_data_re_share_and_external_trade'
 VIEW_NAME_PRICE_CHANGE = 'computed_data_price_change_ger_lux'
 VIEW_NAME_DUNKELFLAUTEN_STATS = 'computed_data_dunkelflauten_enriched'
-VIEW_NAME_HISTORICAL_WEATHER_AGG = 'computed_data_historical_weather_aggregation'
+VIEW_NAME_HISTORICAL_WEATHER_AGG = 'computed_data_historical_weather_agg'
 FLAG = -1e8
 
 # Reading from environment variable

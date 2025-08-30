@@ -1,9 +1,12 @@
+from typing import Literal, get_args
+
 import psycopg2
 import sys
 
-from Helper import DB_PARAMS, VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE, VIEW_NAME_DUNKELFLAUTEN_STATS
-from psqlDatabase.viewsSQL import dunkelflauten_stats_view_sql, re_share_import_view_sql, price_change_view_sql
-
+from Helper import DB_PARAMS, VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE, VIEW_NAME_DUNKELFLAUTEN_STATS, \
+    VIEW_NAME_HISTORICAL_WEATHER_AGG
+from psqlDatabase.viewsSQL import dunkelflauten_stats_view_sql, re_share_import_view_sql, price_change_view_sql, \
+	historical_weather_agg_view_sql
 
 
 def create_computed_view( connection_params, computed_view_name, view_sql ):
@@ -97,19 +100,20 @@ if __name__ == "__main__":
 
     for view_name, sql in [(VIEW_NAME_RE_SHARE_EXT_TRADE, re_share_import_view_sql),
                            [VIEW_NAME_PRICE_CHANGE, price_change_view_sql],
-                           [VIEW_NAME_DUNKELFLAUTEN_STATS, None],
-                           [VIEW_NAME_HISTORICAL_WEATHER_AGG, None]]:
+                           [VIEW_NAME_HISTORICAL_WEATHER_AGG, historical_weather_agg_view_sql],
+                           [VIEW_NAME_DUNKELFLAUTEN_STATS, None]]:  # stats should use weather_agg
 
         if sql is None:
-            for threshold in [ 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55 ]:
+            if view_name == VIEW_NAME_DUNKELFLAUTEN_STATS:
+                for threshold in [ 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55 ]:
 
-                sql = dunkelflauten_stats_view_sql(threshold)
-                currentViewName = view_name + str(int(round( threshold*100 )))
-                if create_computed_view( DB_PARAMS, currentViewName, sql ):
-                    print( f"{currentViewName} creation completed successfully!" )
-                else:
-                    print( "View creation failed!" )
-                    sys.exit( 1 )
+                    sql = dunkelflauten_stats_view_sql(threshold)
+                    currentViewName = view_name + str(int(round( threshold*100 )))
+                    if create_computed_view( DB_PARAMS, currentViewName, sql ):
+                        print( f"{currentViewName} creation completed successfully!" )
+                    else:
+                        print( f"View {currentViewName} creation failed!" )
+                        sys.exit( 1 )
 
         else:
             if create_computed_view( DB_PARAMS, view_name, sql ):

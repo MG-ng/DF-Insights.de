@@ -1,5 +1,6 @@
 /* Basic styling for your templates */
 body {
+    width: 100%;
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
@@ -7,6 +8,7 @@ body {
 }
 
 .navbar {
+    width: 100%;
     background-color: #333;
     color: white;
     padding: 1rem 0;
@@ -14,6 +16,7 @@ body {
 
 .nav-container {
     max-width: 1200px;
+    width: 100%;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
@@ -28,30 +31,77 @@ body {
     text-decoration: none;
 }
 
-.nav-menu {
-    display: flex;
-    list-style: none;
-    margin: 0;
-    padding: 0;
+#btnControl {
+    display: none;
 }
-
-.nav-menu li {
-    margin-left: 2rem;
+@media screen and (min-width: 15cm) {
+    .nav-menu-desktop {
+        display: flex;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    .nav-menu-mobile {
+        display: none;
+    }
+    .hamburger {
+        display: none;
+    }
 }
-
-.nav-menu a {
+@media screen and (max-width: 15cm) {
+    #hamburger {
+        display: flex;
+        margin-top: 4px;
+        margin-left: 20px;
+        flex-direction: column;
+        cursor: pointer;
+    }
+    .nav-menu-desktop {
+        display: none;
+    }
+    .hamburger span {
+        width: 20px;
+        height: 2px;
+        background: white;
+        margin: 2px 0;
+        transition: 0.3s;
+        border-radius: 3px;
+    }
+    .nav-menu-mobile {
+        display: none;
+        width: 50%;
+        top: 2cm;
+        left: 25%;
+        padding: 0;
+        z-index: 100;
+        list-style-type: none;
+        box-shadow:  /* x y blur spread color */
+            0 0 2cm 0 #000000ff, 3cm -1cm 3cm 0 #ff9900aa, -2cm 2cm 10cm 0 #00ff77aa;
+    }
+    /* ~ selects any of the next siblings */
+    #btnControl:checked ~ .nav-menu-mobile {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+    }
+}
+.nav-container .nav-menu-desktop li {
+    margin: 2rem;
+}
+.nav-container a {
     color: white;
     text-decoration: none;
 }
 
-.nav-menu a:hover {
-    color: #ddd;
+.nav-container a:hover {
+    color: #dddddd;
 }
 
 .main-content {
     max-width: 1200px;
     margin: 0 auto;
     padding: 2rem;
+    position: relative;
 }
 
 .hero-section {
@@ -108,7 +158,6 @@ body {
 
 input.form-group,
 textarea.form-group {
-    width: 100%;
     padding: 0.5rem;
     border: 1px solid #ddd;
     border-radius: 4px;
@@ -219,5 +268,4 @@ For the Tom Selection Groups
     background: #fffff0;
     padding: .25em;
     margin: 8px;
-    z-index: 1;
 }
