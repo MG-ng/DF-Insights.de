@@ -2,12 +2,12 @@ import psycopg2
 from psycopg2.extras import execute_batch
 import sys
 
-from Helper import FilterTranslations, TABLE_NAME_SMARD, DB_PARAMS, FILTER, COMPUTED_IDS
+from Helper import FilterTranslations, TABLE_NAME_SMARD, DB_PARAMS, FILTER, OTHER_THAN_SMARD_FILTER_IDs
 
 
 allCols = list( FilterTranslations.values() )
-numeric_columns = [col for col in allCols if FILTER[FilterTranslations.inverse[col]] not in COMPUTED_IDS]
-# COMPUTED_IDS get inserted by computed by view SQL
+numeric_columns = [ col for col in allCols if FILTER[FilterTranslations.inverse[col]] not in OTHER_THAN_SMARD_FILTER_IDs ]
+# OTHER_THAN_SMARD_FILTER_IDs get inserted by computed by view SQL
 
 
 def create_table_with_schema( connection_params, table_name ):

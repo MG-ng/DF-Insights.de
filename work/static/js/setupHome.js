@@ -58,6 +58,18 @@ Highcharts.getJSON('/api', function(data) {
             title: {text: 'Percentage'},  // Dimensionless 0-100% for residual generation max_share
             labels: {style: {color: '#00FF00'}},
             opposite: true // Places it on the right side
+        }, {// Fourth y-axis (index 3)
+            id: 'wind-speed_y-axis',
+            title: {text: ''},  // Dimensionless 0-100% for residual generation max_share
+            visible: false
+        }, {// Fifth y-axis (index 4)
+            id: 'solar-radiation_y-axis',
+            title: {text: ''},  // Dimensionless 0-100% for residual generation max_share
+            visible: false
+        }, {// Sixth y-axis (index 5)
+            id: 'repi_y-axis',
+            title: {text: ''},  // Dimensionless 0-100% for residual generation max_share
+            visible: false
         }],
         tooltip: {
             shared: false,
@@ -206,6 +218,16 @@ var filterClasses = [
         label_scientific: 'Electricity during this given time resolution'
     },
     {
+        value: 'weather_data',
+        label: 'Weather Data in W/m^2 or m/s',
+        label_scientific: 'Solar Radiation, Wind Speed'
+    },
+    {
+        value: 'repi_tests',
+        label: 'REPI Dimensionless Number',
+        label_scientific: 'Renewable Energy Production Index'
+    },
+    {
         value: 'computed',
         label: 'Virtual Computed Timeseries',
         label_scientific: 'Various units depending on the calculation'
@@ -226,9 +248,11 @@ var options = [];
 for (var filter in filters) {
     // console.log(filter, filters[filter])
     options.push({  // TODO: Enhance logic
-        class: filters[filter].includes("Marktpreis") ? filterClasses[0].value :
-            filters[filter].includes("Computed") ? filterClasses[2].value :
-                filterClasses[1].value,
+        class: filters[filter].includes("Marktpreis") ? 'price_EUR_MWh' :
+            filters[filter].includes("Computed") ? 'computed' :
+                filters[filter].includes("Weather") ? 'weather_data' :
+                    filters[filter].includes("REPI") ? 'repi_tests' :
+                        filterClasses[1].value,
         value: filter,
         label: formatFilterName(translations[filters[filter]]),
         label_scientific: filters[filter]
@@ -380,4 +404,8 @@ class Match {
 }
 
 
-
+// https://www.smard.de/page/home/topic-article/211972/212398/nettonennleistung-am-strommarkt
+// 2025
+// Biomasse	Wasserkraft	Braunkohle	Steinkohle	Erdgas	Pumpspeicher	Mineralöl	Sonstige (nicht erneuerbar)
+//    9.021 +     5.546 +    14.748   + 8.740     + 30.212 + 9.878        + 2.534      + 8.203
+// = 88.882 GW conventional power plants

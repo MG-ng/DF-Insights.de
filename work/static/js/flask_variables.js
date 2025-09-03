@@ -30,8 +30,8 @@ var reloadData = function() {
 
         var selectedFilterList = []
         // Clear all existing options
-        cma_selector.clear();
-        cma_selector.clearOptions();
+        cma_selector.clear()
+        cma_selector.clearOptions()
         selectorFilter.items.forEach(item => selectedFilterList.push(item) )
         var filter_names_url = selectedFilterList.join( "&filters=" )
         console.log( "selectorRes.item() = " + selectorRes.items )
@@ -75,20 +75,26 @@ var reloadData = function() {
                 for (let i = 1; i < innerLength; i++) {
                     // duplicate the timestamp to each series (innerList[0])
                     const newList = dbData.map( innerList => [ innerList[0], innerList[i] ] )
+                    var seriesColumnName = ordering[i+2]
+
                     timeChart.addSeries({
-                        id: ordering[i+2],
-                        name: ordering[i+2],
+                        id: seriesColumnName,
+                        name: seriesColumnName,
                         data: newList,
-                        yAxis: ordering[i+2].includes("Share") || ordering[i+2].includes("Rel") ? 2 :
-                            ordering[i+2].toLowerCase().includes("price") ? 0 : 1,  // TODO: Enhance Logic and correctness
+                        yAxis:  // TODO: Enhance Logic and correctness
+                            seriesColumnName.includes("Share") || seriesColumnName.includes("Rel") ? 2 :
+                            seriesColumnName.toLowerCase().includes("price") ? 0 :
+                                seriesColumnName.includes("radiation") ? 'solar-radiation_y-axis' :
+                                seriesColumnName.includes("speed") ? 'wind-speed_y-axis' :
+                                    seriesColumnName.includes("repi_") ? 'repi_y-axis' : 1,
                         color: randomHSL()
                     })
                     cma_selector.addOption({
-                        name: ordering[i+2],
-                        value: ordering[i+2],
+                        name: seriesColumnName,
+                        value: seriesColumnName,
                         data: newList,
-                        class: ordering[i+2].toLowerCase().includes("price") ? 0 : 1,
-                        label: ordering[i+2]
+                        class: seriesColumnName.toLowerCase().includes("price") ? 0 : 1,
+                        label: seriesColumnName
                     })
 
                     // cma_selector.refreshOptions();  // Just distracts with the focus on the expanded dropdown

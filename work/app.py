@@ -35,18 +35,18 @@ def index():
 def api():
     filters = request.args.getlist( 'filters', type = int )  # filters contains the numeric ids
     if len([id for id in filters if (id not in FILTER.values())]) != 0:
-        return "Data not available", 404
+        return "Data not available1", 404
     if not filters:  # no get parameters = filters
         filters.append( FILTER[ FilterTranslations.inverse[ "Power_Consumption_Residual_load" ] ] )
         filters.append( FILTER[ FilterTranslations.inverse[ "Power_Consumption_Total" ] ] )
     resolution = request.args.get( 'resolution', Resolution.DAY.value, type = str )
     region = request.args.get( 'region', "DE", type = str )
     if resolution not in Resolution.values() or region not in REGION_LIST:
-        return "Data not available", 404
+        return "Data not available2", 404
     start_ms = request.args.get( 'startTime', 1000000000000, type = int )  # 9. September 2001
     end_ms = request.args.get( 'endTime', 2000000000000, type = int )  # 18. May 2033
     if start_ms < 0 or end_ms <= 0 or start_ms > end_ms or end_ms > 2000000000000:
-        return "Data not available", 404
+        return "Data not available3", 404
 
     chartDurationDays = (end_ms - start_ms)/1000/60/60/24  # ms->s->m->h->d
     if resolution in [Resolution.HOUR.value, Resolution.QUARTERHOUR.value] and chartDurationDays > 365*2:
@@ -170,6 +170,10 @@ def features():
 @app.route('/usage')
 def usage():
     return render_template('usage.html', title='Usage')
+
+@app.route('/prediction')
+def prediction():
+    return render_template('prediction.html', title='prediction')
 
 @app.route('/about')
 def about():

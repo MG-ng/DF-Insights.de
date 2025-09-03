@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Features{% endblock %}
+
+{% block content %}
+<div class="page-header my-5">
+    <h1>Prediction</h1>
+</div>
+
+<div class="content-section">
+
+    <i>
+        If you are not interested in specific instances of Dunkelflauten, you can see here on this site how the variables
+        influence each other. <br>
+    </i>
+        We introduce a new variable called <b>REPI</b> to have a measurement of how much electricity renewables can produce. <br>
+        It stands for <b>Renewable Production Index</b>. <br>
+        The writing behind the name stands for the calculation method: <br>
+        We mainly take 3 compound variables to calculate the REPI: <br>
+    <ol>
+        <li>Wind Speed in 100m height in m/s</li>
+        <li>Direct Solar Radiation in W/m^2</li>
+        <li>Diffuse Solar Radiation in W/m^2</li>
+    </ol>
+    To get the situation in the whole of Germany, we span out an evently spaced grid of 3x4= 12 locations: <br>
+    The average of following 6 spots from the 2 northern rows of Germany make up the situation of the available wind power:
+    <br>
+    <ul>
+        <li>51.985939025878906,6.935780048370361</li>
+        <li>51.985939025878906,10.073394775390625</li>
+        <li>51.985939025878906,13.04587173461914</li>
+        <li>54.02460479736328,6.976743698120117</li>
+        <li>54.02460479736328,9.94186019897461</li>
+        <li>54.02460479736328,13.081395149230957</li>
+    </ul>
+    <br>
+    The average of the following 9 spots from the 3 southern rows of Gemany make up the situation of the available PV power:
+    <br>
+    <ul>
+        <li>47.97890853881836,7.176079750061035</li>
+        <li>47.97890853881836,10.01661205291748</li>
+        <li>47.97890853881836,13.006645202636719</li>
+        <li>50.017574310302734,7.068062782287598</li>
+        <li>50.017574310302734,10.052355766296387</li>
+        <li>50.017574310302734,12.8795804977417</li>
+        <li>51.985939025878906,6.935780048370361</li>
+        <li>51.985939025878906,10.073394775390625</li>
+        <li>51.985939025878906,13.04587173461914</li>
+    </ul>
+    <br><br>
+    This selection should reflect the differences of installed capacity depending on the region. <br>
+    Wind speed and solar radiation can only be converted into electricity fed into the grid if suitable equipment is
+    installed and registered/permitted. <br>
+
+    <a href="https://strom-report.com/photovoltaik/">Here</a> you can see the southern dominance of Photovoltaik Power Plants.
+    <br>
+    On <a href="https://www.wind-energie.de/themen/zahlen-und-fakten/">this site</a>, the superiority of installed wind
+    power plants in the north is presented.
+
+
+
+    <div class="control-group">
+        <label for="threshold">Threshold</label>
+        <select id="threshold"></select>
+    </div>
+    <script>
+        var thresholdSelector = document.getElementById("threshold")
+        thresholdSelector.innerHTML = [25, 30, 35, 40, 45, 50, 55].map(option =>
+            `<option value="${option}" ${option===35 ? "selected" : ""}>
+                Max ${option}% R.E. during Min 1 day
+            </option>`
+        ).join('')
+        thresholdSelector.onchange = function () {
+            var plotContainer = document.getElementById("plot-container")
+            var threshold = this.value
+            plotContainer.innerHTML = [
+                `<img style=\"width: 100%\" src=\"{{ url_for('static', filename='images/plots') }}/plot${threshold}-pearson.jpg\">`,
+                `<img style=\"width: 100%\" src=\"{{ url_for('static', filename='images/plots') }}/plot${threshold}-kendall.jpg\">`,
+                `<img style=\"width: 100%\" src=\"{{ url_for('static', filename='images/plots') }}/plot${threshold}-spearman.jpg\">`,
+            ].join("<br>")
+        }
+    </script>
+
+    <div id="plot-container" class="section mb-3">
+        <img style="width: 100%" src="{{ url_for('static', filename='images/plots/plot35-pearson.jpg') }}">
+        <img style="width: 100%" src="{{ url_for('static', filename='images/plots/plot35-kendall.jpg') }}">
+        <img style="width: 100%" src="{{ url_for('static', filename='images/plots/plot35-spearman.jpg') }}">
+    </div>
+
+
+    <!--p>
+        Flexibel nutzbare Kraftwerke:
+        Konventionelle Kraftwerke sollen Lücken in der Stromversorgung im Notfall schließen können.
+        Diese Funktion sollen vor allem Gaskraftwerke erfüllen (Biogas oder fossiles Erdgas).
+
+        Demand Side Management (Lastensteuerung):
+        Ein Prinzip, bei dem Stromlasten gezielt ab- und zugeschaltet werden – je nachdem, wie hoch der tatsächliche Bedarf ist.
+        Stromspeicher: Stromspeicher ermöglichen es, Energie längerfristig einzulagern und bei Bedarf zu nutzen.
+        Der wissenschaftliche Dienst hebt zum Beispiel Pumpspeicheranlagen und Power-to-Gas-Technologien als Möglichkeiten hervor.
+        Beim Power-to-Gas-Verfahren wird elektrische Energie in Gas umgewandelt und lässt sich in dieser Form länger speichern.
+        Stromimporte: Durch den europäischen Stromverbund könnten sich Lücken in der Versorgung auch durch importierten
+        Strom aus dem Ausland schließen lassen.
+https://utopia.de/ratgeber/dunkelflaute-gibt-es-ein-strom-aus-ohne-wind-und-sonne_289660/
+    </p-->
+
+    <p>
+        The definition for the good prediction variable repi_power1avg2 is:
+        <code>
+            round( ( least(wind.wind_speed_100_avg, 11)^3
+                + ( radiation.direct_radiation_avg ) *2
+                + ( radiation.diffuse_radiation_avg ) *2
+            )::Decimal(8, 4), 2 ) AS repi_power1avg2,
+        </code>
+    </p>
+
+</div>
+{% endblock %}
+
+

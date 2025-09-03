@@ -193,7 +193,7 @@ WITH prices AS (
                     SELECT AVG(during_df.ger_lux)
                         FROM prices during_df
                         WHERE during_df.unix_timestamp_ms
-                        BETWEEN rl.start_time AND rl.start_time -- <=> value >= low AND value <= high
+                        BETWEEN rl.start_time AND rl.end_time -- <=> value >= low AND value <= high
                 )::DECIMAL(6, 2) AS avg_price_during_dunkelflaute,
                 (
                     SELECT AVG(week_before_df.ger_lux)
@@ -241,9 +241,9 @@ WITH prices AS (
                    -1)*100)
                    ::DECIMAL(7, 3) AS relative_price_increase_during_df_weighted,
                dp.avg_weighted_price_during_df
-                   > LEAST(dp.avg_price_week_before_dunkelflaute, dp.avg_price_week_after_dunkelflaute)
+                   > LEAST(dp.avg_weighted_price_week_before_df, dp.avg_weighted_price_week_after_df)
                    AND dp.avg_weighted_price_during_df
-                           < GREATEST(dp.avg_price_week_before_dunkelflaute, dp.avg_price_week_after_dunkelflaute)
+                           < GREATEST(dp.avg_weighted_price_week_before_df, dp.avg_weighted_price_week_after_df)
                    AS dp_in_before_after_range
             FROM dunkelflauten_prices dp
 
@@ -260,18 +260,22 @@ WITH prices AS (
                     AT TIME ZONE 'Europe/Berlin')) AS year,
                  duration as duration_ms,
                  (duration / (1000*60*60*24.0))::Decimal(5, 2) AS duration_days, 
-                 (SELECT round(avg(weather.repi_30avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
-                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
-                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
-                 	AS hourly_repi_30avg,
-                 (SELECT round(avg(weather.repi_30max), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
-                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
-                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
-                 	AS hourly_repi_30max,
                  (SELECT round(avg(weather.repi_30mix), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
                  	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
                  	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
                  	AS hourly_repi_30mix,
+                 (SELECT round(avg(weather.repi_power1avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS repi_power1avg,
+                 (SELECT round(avg(weather.repi_power1avg2), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS repi_power1avg2,
+                 (SELECT round(avg(weather.repi_sqare1avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS repi_sqare1avg,
                 (SELECT round(avg(weather.wind_speed_100_avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
                  	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
                  	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
@@ -355,7 +359,7 @@ WITH radiation AS (
            min(wind_speed_10m) AS wind_speed_10_min,
            avg(wind_speed_10m)::DECIMAL(6, 3) AS wind_speed_10_avg,
            max(wind_speed_10m) AS wind_speed_10_max,
-           min(wind_speed_100m) AS wind_speed_100min,
+           min(wind_speed_100m) AS wind_speed_100_min,
            avg(wind_speed_100m)::DECIMAL(6, 3) AS wind_speed_100_avg,
            max(wind_speed_100m) AS wind_speed_100_max
     FROM {TABLE_NAME_OPEN_METEO} weather
@@ -410,7 +414,7 @@ radiation_daily AS (
            min(wind_speed_10m) AS wind_speed_10_min,
            avg(wind_speed_10m)::DECIMAL(6, 3) AS wind_speed_10_avg,
            max(wind_speed_10m) AS wind_speed_10_max,
-           min(wind_speed_100m) AS wind_speed_100min,
+           min(wind_speed_100m) AS wind_speed_100_min,
            avg(wind_speed_100m)::DECIMAL(6, 3) AS wind_speed_100_avg,
            max(wind_speed_100m) AS wind_speed_100_max
     FROM {TABLE_NAME_OPEN_METEO} weather
@@ -418,19 +422,23 @@ radiation_daily AS (
     GROUP BY DATE_TRUNC('day', weather.date)
 )
 
-SELECT *, 'hour' AS resolution, 
-		round( ( wind.wind_speed_100_avg
-			+ ( radiation.direct_radiation_avg )/30
-			+ ( radiation.diffuse_radiation_avg )/30
-		)::Decimal(8, 4), 2 ) AS repi_30avg,  -- renewable energy production index
-		round( ( wind.wind_speed_100_max 
-			+ ( radiation.direct_radiation_max )/30
-			+ ( radiation.diffuse_radiation_max )/30
-		)::Decimal(8, 4), 2 ) AS repi_30max,
+SELECT *, 'hour' AS resolution, -- renewable energy production index
 		round( ( wind.wind_speed_100_max 
 			+ ( radiation.direct_radiation_avg )/30
 			+ ( radiation.diffuse_radiation_avg )/30
-		)::Decimal(8, 4), 2 ) AS repi_30mix
+		)::Decimal(8, 4), 2 ) AS repi_30mix,
+		round( ( least(wind.wind_speed_100_avg, 11)^3  	-- wind energy is scaling with the energy to the cube,
+			+ ( radiation.direct_radiation_avg )		-- max power is reached at about 11m/s
+			+ ( radiation.diffuse_radiation_avg )
+		)::Decimal(8, 4), 2 ) AS repi_power1avg,
+		round( ( least(wind.wind_speed_100_avg, 11)^3 
+			+ ( radiation.direct_radiation_avg ) *2
+			+ ( radiation.diffuse_radiation_avg ) *2
+		)::Decimal(8, 4), 2 ) AS repi_power1avg2,
+		round( ( least(wind.wind_speed_100_avg, 11)^2
+			+ ( radiation.direct_radiation_avg )
+			+ ( radiation.diffuse_radiation_avg )
+		)::Decimal(8, 4), 2 ) AS repi_sqare1avg
 FROM radiation
 NATURAL JOIN wind
 NATURAL JOIN wind_dir
@@ -442,18 +450,22 @@ SELECT *, 'day' AS resolution,
 		-- max /40: 20.21,19.75, 8.83           => (19.75+8.83)/(20.21+19.75+8.83) ≈ 58.6%
 		-- avg /20:  6.87, 4.08, 2.75   
 		-- => solar has a lower capacity factor but more installed capacity (hard to account for)
-		round( ( wind_daily.wind_speed_100_avg
-			+ ( radiation_daily.direct_radiation_avg )/30
-			+ ( radiation_daily.diffuse_radiation_avg )/30
-		)::Decimal(8, 4), 2 ) AS repi_30avg,
-		round( ( wind_daily.wind_speed_100_max
-			+ ( radiation_daily.direct_radiation_max )/30
-			+ ( radiation_daily.diffuse_radiation_max )/30
-		)::Decimal(8, 4), 2 ) AS repi_30max,
 		round( ( wind_daily.wind_speed_100_max
 			+ ( radiation_daily.direct_radiation_avg )/30
 			+ ( radiation_daily.diffuse_radiation_avg )/30
-		)::Decimal(8, 4), 2 ) AS repi_30mix
+		)::Decimal(8, 4), 2 ) AS repi_30mix,
+		round( ( least(wind_daily.wind_speed_100_avg, 11)^3  	-- wind energy is scaling with the energy to the cube,
+			+ ( radiation_daily.direct_radiation_avg )		-- max power is reached at about 11m/s
+			+ ( radiation_daily.diffuse_radiation_avg )
+		)::Decimal(8, 4), 2 ) AS repi_power1avg,
+		round( ( least(wind_daily.wind_speed_100_avg, 11)^3 
+			+ ( radiation_daily.direct_radiation_avg ) *2
+			+ ( radiation_daily.diffuse_radiation_avg ) *2
+		)::Decimal(8, 4), 2 ) AS repi_power1avg2,
+		round( ( least(wind_daily.wind_speed_100_avg, 11)^2
+			+ ( radiation_daily.direct_radiation_avg )
+			+ ( radiation_daily.diffuse_radiation_avg )
+		)::Decimal(8, 4), 2 ) AS repi_sqare1avg
 FROM radiation_daily
 NATURAL JOIN wind_daily
 NATURAL JOIN wind_dir_daily
