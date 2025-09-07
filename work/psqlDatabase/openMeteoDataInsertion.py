@@ -30,7 +30,7 @@ engine = create_engine('postgresql://' + DB_PARAMS["user"] + ':' + DB_PARAMS["pa
 					   '@' + str(DB_PARAMS["host"]) + ':' + str(DB_PARAMS["port"]) + '/' + DB_PARAMS["database"])
 
 
-# Setup the Open-Meteo API client with cache and retry on error
+# Set up the Open-Meteo API client with cache and retry on error
 cache_session = requests_cache.CachedSession( '../../.cache', expire_after = -1 )
 retry_session = retry( cache_session, retries = 5, backoff_factor = 0.2 )
 openmeteo = openmeteo_requests.Client( session = retry_session )
@@ -49,7 +49,7 @@ for year in [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]:
 					"direct_radiation", "diffuse_radiation" ],
 		"timezone": [ "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin",
 					  "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin",
-					  "Europe/Berlin" ],
+					  "Europe/Berlin" ],  # TODO: Remove for easier SMARD join
 		"wind_speed_unit": "ms",
 	}
 	responses = openmeteo.weather_api( url, params = params )
@@ -75,6 +75,7 @@ for year in [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]:
 		hourly_diffuse_radiation = hourly.Variables( 6 ).ValuesAsNumpy()
 
 		hourly_data = { "date": pd.date_range(
+			# TODO: change timezone to utc in the request too
 			start = pd.to_datetime( hourly.Time(), unit = "s", utc = True ),
 			end = pd.to_datetime( hourly.TimeEnd(), unit = "s", utc = True ),
 			freq = pd.Timedelta( seconds = hourly.Interval() ),
@@ -85,6 +86,8 @@ for year in [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]:
 		hourly_data[ "lat" ] = hourly_lat
 		hourly_data[ "lng" ] = hourly_lng
 		hourly_data[ "temporal_resolution" ] = 'hour'
+		hourly_data[ "elevation" ] = response.Elevation()
+		hourly_data[ "model" ] = response.Model()
 		""" Model gets selected automatically (Best Match) and I therefore don't know which row of these is applicable
 		Data Set	Region		Spatial Resolution	Temporal Res	Data Availability	Update frequency
 		ECMWF IFS		Global	9 km				Hourly			2017 to present	Daily with 2 days delay

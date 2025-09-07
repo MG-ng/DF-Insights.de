@@ -4,9 +4,9 @@ import psycopg2
 import sys
 
 from Helper import DB_PARAMS, VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE, VIEW_NAME_DUNKELFLAUTEN_STATS, \
-    VIEW_NAME_HISTORICAL_WEATHER_AGG
+	VIEW_NAME_HISTORICAL_WEATHER_AGG, VIEW_NAME_WEATHER_FORECASTS_AGG
 from psqlDatabase.viewsSQL import dunkelflauten_stats_view_sql, re_share_import_view_sql, price_change_view_sql, \
-	historical_weather_agg_view_sql
+	historical_weather_agg_view_sql, historical_weather_forecasts_agg_view_sql
 
 
 def create_computed_view( connection_params, computed_view_name, view_sql ):
@@ -100,8 +100,9 @@ if __name__ == "__main__":
 
     for view_name, sql in [(VIEW_NAME_RE_SHARE_EXT_TRADE, re_share_import_view_sql),
                            [VIEW_NAME_PRICE_CHANGE, price_change_view_sql],
+                           [VIEW_NAME_WEATHER_FORECASTS_AGG, historical_weather_forecasts_agg_view_sql],
                            [VIEW_NAME_HISTORICAL_WEATHER_AGG, historical_weather_agg_view_sql],
-                           [VIEW_NAME_DUNKELFLAUTEN_STATS, None]]:  # stats should use weather_agg
+                           [VIEW_NAME_DUNKELFLAUTEN_STATS, None]]:  # important ordering: stats should use weather_agg
 
         if sql is None:
             if view_name == VIEW_NAME_DUNKELFLAUTEN_STATS:

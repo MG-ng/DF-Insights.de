@@ -13,6 +13,10 @@ from requests import get
 from Helper import FILTER, REGION_LIST
 from decimal import getcontext
 
+
+####### NOT USED ANYMORE ########
+
+
 # Set Decimal precision to 10 places
 getcontext().prec = 10
 allFilters = list(FILTER.values())

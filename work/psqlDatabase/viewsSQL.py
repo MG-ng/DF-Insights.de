@@ -2,7 +2,7 @@ from typing import Literal
 
 from Helper import FilterTranslations, TABLE_NAME_SMARD, FILTER, WIND_SOLAR_ID, RE_SHARE_ID, ELEC_IMPORT_ID, \
 	ELEC_PRICE_CHANGE_ABS_ID, ELEC_PRICE_CHANGE_REL_ID, VIEW_NAME_RE_SHARE_EXT_TRADE, TABLE_NAME_OPEN_METEO, \
-	VIEW_NAME_HISTORICAL_WEATHER_AGG
+	VIEW_NAME_HISTORICAL_WEATHER_AGG, TABLE_NAME_FORECASTS
 
 # Share of the renewable load as a test for the postgresql view
 ## Calculating a virtual percentage/max_share line of (wind+solar) on total demand if resLoad + gridLoad are available
@@ -311,7 +311,7 @@ WITH prices AS (
 #     54.02460479736328,9.94186019897461
 #     54.02460479736328,13.081395149230957
 #     Only the 2 northern rows for wind
-historical_weather_agg_view_sql =  f""" -- # Unfortunately inserting into a view is not possi 
+historical_weather_agg_view_sql =  f""" -- # Unfortunately inserting into a view is not possible
 WITH radiation AS (
     SELECT weather.date AS date,
            min(direct_radiation) AS direct_radiation_min,
@@ -471,6 +471,84 @@ NATURAL JOIN wind_daily
 NATURAL JOIN wind_dir_daily
 """
 
+
+
+
+historical_weather_forecasts_agg_view_sql = f"""-- # Unfortunately inserting into a view is not possible
+WITH radiation AS (
+    SELECT forecast.timestamp_s, forecast.model, forecast.temporal_resolution, 
+           min(direct_radiation) AS direct_radiation_min,
+           avg(direct_radiation)::DECIMAL(6, 3) AS direct_radiation_avg,
+           avg(direct_radiation_previous_day1)::DECIMAL(6, 3) AS direct_radiation_avg_previous_day1,
+           avg(direct_radiation_previous_day2)::DECIMAL(6, 3) AS direct_radiation_avg_previous_day2,
+           avg(direct_radiation_previous_day3)::DECIMAL(6, 3) AS direct_radiation_avg_previous_day3,
+           max(direct_radiation) AS direct_radiation_max,
+           min(diffuse_radiation) AS diffuse_radiation_min,
+           avg(diffuse_radiation)::DECIMAL(6, 3) AS diffuse_radiation_avg,
+           avg(diffuse_radiation_previous_day1)::DECIMAL(6, 3) AS diffuse_radiation_avg_previous_day1,
+           avg(diffuse_radiation_previous_day2)::DECIMAL(6, 3) AS diffuse_radiation_avg_previous_day2,
+           avg(diffuse_radiation_previous_day3)::DECIMAL(6, 3) AS diffuse_radiation_avg_previous_day3,
+           max(diffuse_radiation) AS diffuse_radiation_max,
+           min(temperature_2m) AS temp2m_min,
+           avg(temperature_2m)::DECIMAL(6, 3) AS temp2m_avg,
+           avg(temperature_2m_previous_day1)::DECIMAL(6, 3) AS temperature_2m_avg_previous_day1,
+           avg(temperature_2m_previous_day2)::DECIMAL(6, 3) AS temperature_2m_avg_previous_day2,
+           avg(temperature_2m_previous_day3)::DECIMAL(6, 3) AS temperature_2m_avg_previous_day3,
+           max(temperature_2m) AS temp2m_max
+    FROM {TABLE_NAME_FORECASTS} forecast
+    WHERE forecast.lat < 52
+    GROUP BY forecast.model, forecast.timestamp_s, forecast.temporal_resolution
+), wind AS (
+    SELECT forecast.timestamp_s, forecast.model, forecast.temporal_resolution, 
+           avg(wind_speed_80m) AS wind_speed_80m_avg,
+           avg(wind_speed_80m_previous_day1)::DECIMAL(6, 3) AS wind_speed_80m_avg_previous_day1,
+           avg(wind_speed_80m_previous_day2)::DECIMAL(6, 3) AS wind_speed_80m_avg_previous_day2,
+           avg(wind_speed_80m_previous_day3)::DECIMAL(6, 3) AS wind_speed_80m_avg_previous_day3,
+           avg(wind_speed_120m) AS wind_speed_120m_avg,
+           avg(wind_speed_120m_previous_day1)::DECIMAL(6, 3) AS wind_speed_120m_avg_previous_day1,
+           avg(wind_speed_120m_previous_day2)::DECIMAL(6, 3) AS wind_speed_120m_avg_previous_day2,
+           avg(wind_speed_120m_previous_day3)::DECIMAL(6, 3) AS wind_speed_120m_avg_previous_day3,
+           avg(wind_speed_180m) AS wind_speed_180m_avg,
+           avg(wind_speed_180m_previous_day1)::DECIMAL(6, 3) AS wind_speed_180m_avg_previous_day1,
+           avg(wind_speed_180m_previous_day2)::DECIMAL(6, 3) AS wind_speed_180m_avg_previous_day2,
+           avg(wind_speed_180m_previous_day3)::DECIMAL(6, 3) AS wind_speed_180m_avg_previous_day3,
+           (avg(wind_speed_80m) * POWER(100.0/80.0, LN(avg(wind_speed_120m)/avg(wind_speed_80m))
+            		/ LN(120.0/80.0)))::DECIMAL(6, 3) as wind_100m_log,
+           (avg(wind_speed_80m_previous_day1) * POWER(100.0/80.0, LN(avg(wind_speed_120m_previous_day1)/avg(wind_speed_80m_previous_day1))
+            		/ LN(120.0/80.0)))::DECIMAL(6, 3) as wind_100m_log_previous_day1,
+           (avg(wind_speed_80m_previous_day2) * POWER(100.0/80.0, LN(avg(wind_speed_120m_previous_day2)/avg(wind_speed_80m_previous_day2))
+            		/ LN(120.0/80.0)))::DECIMAL(6, 3) as wind_100m_log_previous_day2,
+           (avg(wind_speed_80m_previous_day3) * POWER(100.0/80.0, LN(avg(wind_speed_120m_previous_day3)/avg(wind_speed_80m_previous_day3))
+            		/ LN(120.0/80.0)))::DECIMAL(6, 3) as wind_100m_log_previous_day3
+    FROM {TABLE_NAME_FORECASTS} forecast
+    WHERE forecast.lat > 51
+    GROUP BY forecast.model, forecast.timestamp_s, forecast.temporal_resolution
+)
+-- wind energy is scaling with the energy to the cube,
+-- max power is reached at about 11m/s
+SELECT *, -- renewable energy production index
+		round( ( least(wind.wind_100m_log, 11)^3 
+			+ ( radiation.direct_radiation_avg ) *2 
+			+ ( radiation.diffuse_radiation_avg ) *2 
+		)::Decimal(8, 4), 2 ) AS repi_power1avg2, 
+		
+		round( ( least(wind.wind_100m_log_previous_day1, 11)^3 
+			+ ( radiation.direct_radiation_avg_previous_day1 ) *2 
+			+ ( radiation.diffuse_radiation_avg_previous_day1 ) *2 
+		)::Decimal(8, 4), 2 ) AS repi_power1avg2_previous_day1, 
+		
+		round( ( least(wind.wind_100m_log_previous_day2, 11)^3 
+			+ ( radiation.direct_radiation_avg_previous_day2 ) *2 
+			+ ( radiation.diffuse_radiation_avg_previous_day2 ) *2 
+		)::Decimal(8, 4), 2 ) AS repi_power1avg2_previous_day2, 
+		
+		round( ( least(wind.wind_100m_log_previous_day3, 11)^3 
+			+ ( radiation.direct_radiation_avg_previous_day3 ) *2 
+			+ ( radiation.diffuse_radiation_avg_previous_day3 ) *2 
+		)::Decimal(8, 4), 2 ) AS repi_power1avg2_previous_day3
+FROM radiation
+NATURAL JOIN wind
+"""
 
 
 
@@ -762,4 +840,31 @@ GROUP BY extract(YEAR FROM to_timestamp(t.unix_timestamp_ms / 1000))
      2023: 458.3835565
      2024: 465.508479
      */
+"""
+
+
+
+""" -- Compare the calculated wind speed of the various coordinates with the different weather models
+WITH shear AS ( -- Calculate average shear exponent from available height pairs
+    SELECT
+        (LN(avg(wind_speed_120m)/avg(wind_speed_80m)) / LN(120.0/80.0) +
+         LN(avg(wind_speed_180m)/avg(wind_speed_120m)) / LN(180.0/120.0) +
+         LN(avg(wind_speed_180m)/avg(wind_speed_80m)) / LN(180.0/80.0)) / 3.0
+            as alpha_avg,
+        forecast.model, forecast.lat, forecast.lng,
+        avg(wind_speed_80m)::DECIMAL(6, 3) AS wind_speed_80m_avg,
+        avg(wind_speed_120m)::DECIMAL(6, 3) AS wind_speed_120m_avg,
+        avg(wind_speed_180m)::DECIMAL(6, 3) AS wind_speed_180m_avg,
+        (avg(wind_speed_80m) * POWER(100.0/80.0, LN(avg(wind_speed_120m)/avg(wind_speed_80m)) / LN(120.0/80.0)))
+            ::DECIMAL(6, 3) as wind_100m_log
+    FROM weather_forecasts_data_raw forecast
+    GROUP BY forecast.lat, forecast.lng, forecast.model
+) SELECT
+    w.model, w.lat, w.lng,
+    round(wind_100m_log, 2) as wind_speed_80_120_log,
+    round((avg(w.wind_speed_80m) * POWER(100.0/80.0, p.alpha_avg))::DECIMAL(6, 3), 2) as wind_speed_80_120_180_log_avg -- null for gfs_global
+    FROM weather_forecasts_data_raw w
+    JOIN shear p ON w.model=p.model AND w.lat=p.lat AND w.lng=p.lng
+    GROUP BY w.model, w.lat, w.lng, p.alpha_avg, p.wind_100m_log, w.model
+    ORDER BY alpha_avg;
 """
