@@ -41,7 +41,7 @@ const dunkelflauten_features = [
     { value: "year", text: "Year of Dunkelflauten Mean Incidence" },
     { value: "hourly_repi_30mix", text: "Hourly REPI: Wind Max and /30 Solar Avg" },
     { value: "repi_power1avg", text: "Hourly REPI: Wind Avg ^3 and Solar Avg" },
-    { value: "repi_sqare1avg", text: "Hourly REPI: Wind Avg ^2 and Solar Avg" },
+    { value: "repi_square1avg", text: "Hourly REPI: Wind Avg ^2 and Solar Avg" },
     { value: "repi_power1avg2", text: "Hourly REPI: Wind Avg and 2* Solar Avg" },
     { value: "wind_speed_100_avg", text: "Avg Wind Speed in 100m Height at 6 spots across GER during DF" },
     { value: "diffuse_radiation_avg", text: "Avg Diffuse Radiation at 9 spots across GER during DF" },

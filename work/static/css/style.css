@@ -198,6 +198,7 @@ For the Tom Selection Groups
 }
 .select-cma {
     min-width: 20rem;
+    z-index: 0;
 }
 
 /* Just overwrite width=100% to not take up so much empty space */
@@ -269,4 +270,5 @@ For the Tom Selection Groups
     background: #fffff0;
     padding: .25em;
     margin: 8px;
+    z-index: 1;
 }

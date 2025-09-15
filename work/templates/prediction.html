@@ -103,15 +103,17 @@
 https://utopia.de/ratgeber/dunkelflaute-gibt-es-ein-strom-aus-ohne-wind-und-sonne_289660/
     </p-->
 
-    <p>
-        The definition for the good predicting variable repi_power1avg2 is:
-        <code>
-            round( ( least(wind.wind_speed_100_avg, 11)^3
-                + ( radiation.direct_radiation_avg ) *2
-                + ( radiation.diffuse_radiation_avg ) *2
-            )::Decimal(8, 4), 2 ) AS repi_power1avg2,
-        </code>
-    </p>
+    <pre>
+        <p>
+        The definition for the well predicting variable repi_power1avg2 is: <br>
+            <code>
+                round( ( least(wind.wind_speed_100_avg, 11)^3
+                    + ( radiation.direct_radiation_avg ) *2
+                    + ( radiation.diffuse_radiation_avg ) *2
+                )::Decimal(8, 4), 2 ) AS repi_power1avg2
+            </code>
+        </p>
+    </pre>
 
 </div>
 {% endblock %}

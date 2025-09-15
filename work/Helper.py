@@ -31,7 +31,7 @@ DB_PARAMS = {
     'port': 5432
 }
 
-OTHER_THAN_SMARD_FILTER_IDs = { 1, 2, 4, 5, 6, 10, 11, 12, 13, 14, 15, 16 }
+OTHER_THAN_SMARD_FILTER_IDs = { 1, 2, 4, 5, 6, 10, 11, 12, 13, 14, 15, 16, 17 }
 # KEEP SPECIFIC IDS IN REGARD TO THEIR MEANING, they're used in the DB setup
 RE_SHARE_ID = 1
 WIND_SOLAR_ID = 6
@@ -44,7 +44,8 @@ solar_diffuse_radiation_ID = 12
 repi_power1avg2_ID = 13
 repi_30mix_ID = 14
 repi_power1avg_ID = 15
-repi_sqare1avg_ID = 16
+repi_square1avg_ID = 16
+repi_power_exp_ID = 17
 FILTER = {
     "Anteil Photovoltaik-, Wind Onshore- und Wind (Computed)": WIND_SOLAR_ID,
     "Anteil erneuerbarer Energien (Computed)": RE_SHARE_ID,
@@ -55,9 +56,10 @@ FILTER = {
 	"Direkte Sonneneinstrahlung (Weather)": solar_direct_radiation_ID,
 	"Diffuse Sonneneinstrahlung (Weather)": solar_diffuse_radiation_ID,
 	"REPI min(speed, 11)^3 & radiation*2": repi_power1avg2_ID,
+	"REPI smooth wind limit": repi_power_exp_ID,
 	"REPI 30mix": repi_30mix_ID,
 	"REPI power1avg": repi_power1avg_ID,
-	"REPI sqare1avg": repi_sqare1avg_ID,
+	"REPI sqare1avg": repi_square1avg_ID,
     "Stromerzeugung: Braunkohle": 1223,
     "Stromerzeugung: Kernenergie": 1224,
     "Stromerzeugung: Wind Offshore": 1225,
@@ -110,9 +112,10 @@ FilterTranslationsList = [
 	"direct_radiation_avg",
 	"diffuse_radiation_avg",
 	"repi_power1avg2",
+	"repi_power_exp",
 	"repi_30mix",
 	"repi_power1avg",
-	"repi_sqare1avg",
+	"repi_square1avg",
     "Electricity_Production_Lignite",
     "Electricity_Production_Nuclear_Energy",
     "Electricity_Production_Wind_Offshore",

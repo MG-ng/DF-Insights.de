@@ -260,10 +260,6 @@ WITH prices AS (
                     AT TIME ZONE 'Europe/Berlin')) AS year,
                  duration as duration_ms,
                  (duration / (1000*60*60*24.0))::Decimal(5, 2) AS duration_days, 
-                 (SELECT round(avg(weather.repi_30mix), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
-                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
-                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
-                 	AS hourly_repi_30mix,
                  (SELECT round(avg(weather.repi_power1avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
                  	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
                  	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
@@ -272,10 +268,18 @@ WITH prices AS (
                  	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
                  	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
                  	AS repi_power1avg2,
-                 (SELECT round(avg(weather.repi_sqare1avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 (SELECT round(avg(weather.repi_power_exp), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
                  	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
                  	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
-                 	AS repi_sqare1avg,
+                 	AS repi_power_exp_avg,
+                 (SELECT round(max(weather.repi_power_exp), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS repi_power_exp_max,
+                 (SELECT round(min(weather.repi_power_exp), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                 	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
+                 	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
+                 	AS repi_power_exp_min,
                 (SELECT round(avg(weather.wind_speed_100_avg), 2) FROM {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
                  	WHERE weather.date>to_timestamp(price_delta.start_time /1000) 
                  	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
@@ -311,7 +315,7 @@ WITH prices AS (
 #     54.02460479736328,9.94186019897461
 #     54.02460479736328,13.081395149230957
 #     Only the 2 northern rows for wind
-historical_weather_agg_view_sql =  f""" -- # Unfortunately inserting into a view is not possible
+historical_weather_agg_view_sql = f""" -- # Unfortunately inserting into a view is not possible
 WITH radiation AS (
     SELECT weather.date AS date,
            min(direct_radiation) AS direct_radiation_min,
@@ -435,10 +439,18 @@ SELECT *, 'hour' AS resolution, -- renewable energy production index
 			+ ( radiation.direct_radiation_avg ) *2
 			+ ( radiation.diffuse_radiation_avg ) *2
 		)::Decimal(8, 4), 2 ) AS repi_power1avg2,
+		round( ( 1550 * (1- exp(-0.001 * pow(wind.wind_speed_100_avg, 3)))  -- adjusted for a smooth limit, cuts x^3 at x=9.8
+                   + radiation.direct_radiation_avg *1.4
+                   + radiation.diffuse_radiation_avg *1.4
+        )::Decimal(8, 4), 2 ) AS repi_power_exp,
+/*		round( ( least(wind.wind_speed_100_avg, 11)^3 -- reflects more efficient converting of direct vs diffuse radiation
+			+ ( radiation.direct_radiation_avg ) *3   -- check the 2025/02/12 to 2025/02/17 (diffuse radiation was overrated)
+			+ ( radiation.diffuse_radiation_avg ) *1  -- But => correlation matrix shows worse performance
+		)::Decimal(8, 4), 2 ) AS repi_power1avg3_1,*/
 		round( ( least(wind.wind_speed_100_avg, 11)^2
 			+ ( radiation.direct_radiation_avg )
 			+ ( radiation.diffuse_radiation_avg )
-		)::Decimal(8, 4), 2 ) AS repi_sqare1avg
+		)::Decimal(8, 4), 2 ) AS repi_square1avg
 FROM radiation
 NATURAL JOIN wind
 NATURAL JOIN wind_dir
@@ -462,10 +474,14 @@ SELECT *, 'day' AS resolution,
 			+ ( radiation_daily.direct_radiation_avg ) *2
 			+ ( radiation_daily.diffuse_radiation_avg ) *2
 		)::Decimal(8, 4), 2 ) AS repi_power1avg2,
+		round( ( 1550 * (1- exp(-0.001 * pow(wind_daily.wind_speed_100_avg, 3)))  -- adjusted for a smooth limit, cuts x^3 at x=9.8
+                   + radiation_daily.direct_radiation_avg *1.4
+                   + radiation_daily.diffuse_radiation_avg *1.4
+        )::Decimal(8, 4), 2 ) AS repi_power_exp,
 		round( ( least(wind_daily.wind_speed_100_avg, 11)^2
 			+ ( radiation_daily.direct_radiation_avg )
 			+ ( radiation_daily.diffuse_radiation_avg )
-		)::Decimal(8, 4), 2 ) AS repi_sqare1avg
+		)::Decimal(8, 4), 2 ) AS repi_square1avg
 FROM radiation_daily
 NATURAL JOIN wind_daily
 NATURAL JOIN wind_dir_daily

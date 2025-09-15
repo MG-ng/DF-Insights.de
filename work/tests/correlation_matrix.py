@@ -29,6 +29,7 @@ engine = create_engine('postgresql://' + DB_PARAMS["user"] + ':' + DB_PARAMS["pa
 					   '@' + str(DB_PARAMS["host"]) + ':' + str(DB_PARAMS["port"]) + '/' + DB_PARAMS["database"])
 
 
+# Creation of the matrices on the 1GB RAM server only for the small DF datasets
 def processMatrix( matrix, name ):
 	print("Correlation matrix is : ")
 	print(matrix)
@@ -54,20 +55,34 @@ def processMatrix( matrix, name ):
 
 name = "All"
 
-# dataframe = pd.read_sql(f"""
-# 		SELECT *
-# 		FROM smard_data_collection smard
-# 		INNER JOIN computed_data_historical_weather_agg weather
-# 			ON (EXTRACT(EPOCH FROM weather.date::timestamptz) * 1000)::bigint = smard.unix_timestamp_ms
-# 		INNER JOIN computed_data_re_share_and_external_trade re  --TODO: Correct time zone in join - or redownload table in UTC
-# 			ON (smard.unix_timestamp_ms=re.unix_timestamp_ms AND smard.region=re.region AND smard.resolution=re.resolution)
-# 		WHERE smard.resolution='hour'
-# 		AND weather.resolution='hour'
-# 		AND smard.region='DE'
-# 		AND smard.unix_timestamp_ms > 1704063600000  -- To reduce the size (1. Januar 2024 00:00:00 GMT+01:00)
-# 		AND smard.unix_timestamp_ms < 1735686000000; --1. Januar 2025 00:00:00 GMT+01:00
-# 	""", engine)
+dataframe = pd.read_sql(f"""
+		SELECT *
+		FROM smard_data_collection smard
+		INNER JOIN computed_data_historical_weather_agg weather
+			ON EXTRACT(EPOCH FROM weather.date) = extract( EPOCH FROM to_timestamp( smard.unix_timestamp_ms/1000 ) AT TIME ZONE 'Europe/Berlin')
+		INNER JOIN computed_data_re_share_and_external_trade re
+			ON smard.unix_timestamp_ms=re.unix_timestamp_ms AND smard.region=re.region AND smard.resolution=re.resolution
+		WHERE smard.resolution='hour'
+		AND weather.resolution='hour'
+		AND smard.region='DE'
+		AND smard.unix_timestamp_ms > 1704063600000  -- To reduce the size (1. Januar 2024 00:00:00 GMT+01:00)
+		AND smard.unix_timestamp_ms < 1735686000000; --1. Januar 2025 00:00:00 GMT+01:00
+	""", engine)
 
+numeric_df = dataframe.select_dtypes( include = [ np.number ] )
+dtypes = numeric_df.dtypes.to_dict()
+print( f"{dtypes = }" )
+
+# Get positions of columns with specific name
+indices = [ i for i, col in enumerate( numeric_df.columns ) if col == 'unix_timestamp_ms' ]
+# remove last one
+numeric_df = numeric_df.drop( numeric_df.columns[ indices[ -1 ] ], axis = 1 )
+# Export
+numeric_df.to_hdf( f'data.h5', key = 'df', mode = 'w' )
+exit(0)
+
+
+# Previous Runs, Forecasts
 for model in models.values():
 	dataframe = pd.read_sql(f"""
 			SELECT smard.*, re.*,

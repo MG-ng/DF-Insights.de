@@ -83,7 +83,7 @@ def get_computed_timeseries( region, resolution, filter_names, start_ms, end_ms 
                                             to_timestamp( (CASE
                                                 WHEN pct.unix_timestamp_ms IS NULL THEN rsett.unix_timestamp_ms
                                                 ELSE pct.unix_timestamp_ms END) /1000)
-                                                AT TIME ZONE 'Europe/Berlin') AS tstz,
+                                                AT TIME ZONE 'Europe/Berlin') AS tstz,  -- convert here for performance
                                    CASE
                                        WHEN pct.region IS NULL THEN rsett.region
                                        ELSE pct.region END AS region_filled,
