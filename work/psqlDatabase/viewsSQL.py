@@ -107,7 +107,7 @@ WITH prices AS (
            CASE WHEN sdc.resolution='quarterhour' THEN sdc.power_consumption_residual_load * 4
                ELSE sdc.power_consumption_residual_load END AS res_load_power
         FROM {TABLE_NAME_SMARD} sdc
-        WHERE sdc.resolution = 'quarterhour'
+        WHERE sdc.resolution = 'quarterhour'  -- quarterhour needed as an assumption later
           AND sdc.region = 'DE'
           AND sdc.market_price_ger_lux IS NOT NULL -- Prices are null up to 1.10.2018
     -- Without throwing out NULL rows: 25 seconds with t.resolution='day'
@@ -224,18 +224,18 @@ WITH prices AS (
         ), price_delta AS ( --1 min 3 s for this table
             SELECT dp.*,
                 (
-                   SELECT SUM((during_df.res_load - (dp.avg_res_load_power_before_after/4)))  -- assuming quarterhour resolution for res_load energy! 
-                       FROM prices during_df
-                       WHERE during_df.unix_timestamp_ms
-                           BETWEEN dp.start_time AND dp.end_time
-                               AND (during_df.res_load - (dp.avg_res_load_power_before_after/4)) > 0
+                   SELECT SUM((during_df.res_load - (dp.avg_res_load_power_before_after/4)))  -- assuming quarterhour resolution for during_df.res_load energy! 
+                       FROM prices during_df 
+                       WHERE during_df.unix_timestamp_ms 
+                           BETWEEN dp.start_time AND dp.end_time 
+-- assuming BESS during DF      AND (during_df.res_load - (dp.avg_res_load_power_before_after/4)) > 0 -- assuming quarterhour resolution again!
                 )::DECIMAL(15, 2)  AS extent,
                 (
-                   SELECT SUM((during_df.res_load - (dp.avg_res_load_power_before_after/4)) * during_df.ger_lux) -- assuming quarterhour resolution! 
+                   SELECT SUM((during_df.res_load - (dp.avg_res_load_power_before_after/4)) * during_df.ger_lux) -- assuming quarterhour resolution again! 
                        FROM prices during_df
                        WHERE during_df.unix_timestamp_ms
                            BETWEEN dp.start_time AND dp.end_time
-                               AND (during_df.res_load - (dp.avg_res_load_power_before_after/4)) > 0
+-- assuming BESS during DF      AND (during_df.res_load - (dp.avg_res_load_power_before_after/4)) > 0  -- assuming quarterhour resolution again! 
                 )::DECIMAL(15, 2)  AS storage_made_electricity_value,
                dp.avg_price_during_dunkelflaute
                    - (dp.avg_price_week_before_dunkelflaute + dp.avg_price_week_after_dunkelflaute) / 2
