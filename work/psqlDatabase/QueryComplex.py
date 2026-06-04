@@ -1,6 +1,7 @@
 import time
 
 import psycopg2
+from psycopg2 import sql
 from Helper import (TABLE_NAME_SMARD, DB_PARAMS, FILTER, FilterTranslations, OTHER_THAN_SMARD_FILTER_IDs,
 					VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE, VIEW_NAME_HISTORICAL_WEATHER_AGG)
 
@@ -34,24 +35,29 @@ def get_timeseries( region, resolution, filter_ids, start_ms, end_ms ):
 # TODO: Enhance Timestamps Filtering
 # TODO: Fully Support different Regions (but current focus is on Germany)
 def get_smard_timeseries( region, resolution, filter_names, start_ms, end_ms ):
-    if filter_names == []:
+    allowed_filter_names = set( FilterTranslations.values() )
+    if filter_names == [] or any( filter_name not in allowed_filter_names for filter_name in filter_names ):
         return [], []  # needed because otherwise the query doesn't make sense
     conn, cursor, rows, column_names = [None] * 4
     try:
         conn = psycopg2.connect( **DB_PARAMS )
         cursor = conn.cursor()
 
-        cursor.execute( f"""-- I wish Highcharts is automatically converting the unix timestamp to the local timezone
+        query = sql.SQL("""-- I wish Highcharts is automatically converting the unix timestamp to the local timezone
 						SELECT (extract( EPOCH FROM (to_timestamp(unix_timestamp_ms/1000)
 								AT TIME ZONE 'Europe/Berlin')) *1000)::BIGINT								
 								AS unix_timestamp_ms, 
-								region, resolution, {", ".join(filter_names)}
-							FROM {TABLE_NAME_SMARD} 
-							WHERE region = '{region}'
-							AND resolution = '{resolution}'
-							AND unix_timestamp_ms >= {start_ms}
-							AND unix_timestamp_ms <= {end_ms}; """
-                        )
+								region, resolution, {columns}
+							FROM {table_name}
+							WHERE region = %s
+                                AND resolution = %s
+                                AND unix_timestamp_ms >= %s
+                                AND unix_timestamp_ms <= %s; """
+                        ).format(
+            columns = sql.SQL( ", " ).join( sql.Identifier( name.lower() ) for name in filter_names ),
+            table_name = sql.Identifier( TABLE_NAME_SMARD )
+        )
+        cursor.execute( query, (region, resolution, start_ms, end_ms) )
         rows = cursor.fetchall()
 
         column_names = [ desc[ 0 ] for desc in cursor.description ]
@@ -65,13 +71,14 @@ def get_smard_timeseries( region, resolution, filter_names, start_ms, end_ms ):
 
 
 def get_computed_timeseries( region, resolution, filter_names, start_ms, end_ms ):
-    if filter_names == []:
+    allowed_filter_names = set( FilterTranslations.values() )
+    if filter_names == [] or any( filter_name not in allowed_filter_names for filter_name in filter_names ):
         return [], []
     conn, cursor, rows, column_names = [None] * 4
     try:
         conn = psycopg2.connect( **DB_PARAMS )
         cursor = conn.cursor()
-        cursor.execute( f"""
+        query = sql.SQL("""
                         WITH filled_primary_keys AS (
                             SELECT *,
                             		-- computed_data_historical_weather_agg date already in TZ 'Europe/Berlin'
@@ -90,24 +97,30 @@ def get_computed_timeseries( region, resolution, filter_names, start_ms, end_ms 
                                    CASE
                                        WHEN pct.resolution IS NULL THEN rsett.resolution
                                        ELSE pct.resolution END AS resolution_filled
-                                FROM {VIEW_NAME_PRICE_CHANGE} pct
-                                         NATURAL FULL JOIN {VIEW_NAME_RE_SHARE_EXT_TRADE} rsett)
+                                FROM {view_name_price_change} pct
+                                         NATURAL FULL JOIN {view_name_re_share_ext_trade} rsett)
 						 -- TODO: move to s instead of ms
                         SELECT (extract(EPOCH FROM (to_timestamp(t.unix_timestamp_ms_filled/1000)                         		
                         		AT TIME ZONE 'Europe/Berlin'))*1000)::BIGINT as unix_timestamp_ms, 
                         		t.region_filled as region,
-                         		t.resolution_filled as resolution, {", ".join(filter_names)}
+								t.resolution_filled as resolution, {columns}
                             FROM filled_primary_keys t
-                            LEFT JOIN {VIEW_NAME_HISTORICAL_WEATHER_AGG} weather
+                            LEFT JOIN {view_name_historical_weather_agg} weather
                                 ON extract(EPOCH FROM weather.date) = t.tstz
                                     AND t.resolution_filled::text in ('hour', 'day')
                                     AND t.resolution_filled::text = weather.resolution
-                            WHERE t.region_filled = '{region}'
-                            AND t.resolution_filled = '{resolution}'
-                            AND t.unix_timestamp_ms_filled >= {start_ms}
-                            AND t.unix_timestamp_ms_filled <= {end_ms}
+                            WHERE t.region_filled = %s
+                            AND t.resolution_filled = %s
+                            AND t.unix_timestamp_ms_filled >= %s
+                            AND t.unix_timestamp_ms_filled <= %s
                             ORDER BY t.unix_timestamp_ms_filled ASC;
-                        """)
+                        """).format(
+            columns = sql.SQL( ", " ).join( sql.Identifier( name.lower() ) for name in filter_names ),
+            view_name_price_change = sql.Identifier( VIEW_NAME_PRICE_CHANGE ),
+            view_name_re_share_ext_trade = sql.Identifier( VIEW_NAME_RE_SHARE_EXT_TRADE ),
+            view_name_historical_weather_agg = sql.Identifier( VIEW_NAME_HISTORICAL_WEATHER_AGG )
+        )
+        cursor.execute( query, (region, resolution, start_ms, end_ms) )
 
         rows = cursor.fetchall()
 

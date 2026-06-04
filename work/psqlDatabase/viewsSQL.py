@@ -1,27 +1,33 @@
 from typing import Literal
 
-from Helper import FilterTranslations, TABLE_NAME_SMARD, FILTER, WIND_SOLAR_ID, RE_SHARE_ID, ELEC_IMPORT_ID, \
+from Helper import FilterTranslations, TABLE_NAME_SMARD, FILTER, WIND_SOLAR_SHARE_ID, RE_SHARE_ID, ELEC_IMPORT_ID, \
 	ELEC_PRICE_CHANGE_ABS_ID, ELEC_PRICE_CHANGE_REL_ID, VIEW_NAME_RE_SHARE_EXT_TRADE, TABLE_NAME_OPEN_METEO, \
-	VIEW_NAME_HISTORICAL_WEATHER_AGG, TABLE_NAME_FORECASTS
+	VIEW_NAME_HISTORICAL_WEATHER_AGG, TABLE_NAME_FORECASTS, WIND_SOLAR_ID, FLAG
 
 # Share of the renewable load as a test for the postgresql view
 ## Calculating a virtual percentage/max_share line of (wind+solar) on total demand if resLoad + gridLoad are available
 # TODO: Fix not forecasted electricity import
 re_share_import_view_sql = f"""
         SELECT  t.unix_timestamp_ms, t.region, t.resolution, 
-            1- ((t.power_consumption_residual_load) / t.power_consumption_total)::DECIMAL(6, 5) 
-            AS {FilterTranslations[FILTER.inverse[WIND_SOLAR_ID]]}, 
+        	( t.electricity_production_photovoltaics 
+        		+ t.electricity_production_wind_onshore 
+        		+ t.electricity_production_wind_offshore 
+        	)::DECIMAL(12, 2) AS {FilterTranslations[FILTER.inverse[WIND_SOLAR_ID]]}, 
             
-            1- ((t.power_consumption_residual_load - t.electricity_production_hydropower - t.electricity_production_other_renewables 
-             - t.electricity_production_biomass - t.electricity_production_pumped_storage ) 
+            1- ((t.power_consumption_residual_load) / t.power_consumption_total)::DECIMAL(6, 5) 
+            AS {FilterTranslations[FILTER.inverse[WIND_SOLAR_SHARE_ID]]}, 
+            
+            1- ((t.power_consumption_residual_load 
+            - t.electricity_production_hydropower 
+            - t.electricity_production_other_renewables 
+            - t.electricity_production_biomass 
+            - t.electricity_production_pumped_storage
+            + t.electricity_consumption_pumped_storage) 
              / t.power_consumption_total)::DECIMAL(6, 5) 
             AS {FilterTranslations[FILTER.inverse[RE_SHARE_ID]]}, 
-            -- "Nur der importierte Strom stammt aus eigenen Berechnungen und entspricht der Differenz von Neztlast und Erzeugung."
+            -- "Nur der importierte Strom stammt aus eigenen Berechnungen und entspricht der Differenz von Neztlast und Erzeugung." ~ SMC
             (t.power_consumption_total - t.total_production)::DECIMAL(12, 2) 
-            AS import_to_fix, 
-            
-            (t.power_consumption_total - t.production_forecast_total)::DECIMAL(11, 2) 
-            AS {FilterTranslations[FILTER.inverse[ELEC_IMPORT_ID]]} 
+            AS {FilterTranslations[FILTER.inverse[ELEC_IMPORT_ID]]}
         FROM ( 
             SELECT *, ( 
                 electricity_production_lignite 
@@ -35,14 +41,19 @@ re_share_import_view_sql = f"""
                 + electricity_production_photovoltaics 
                 + electricity_production_hard_coal 
                 + electricity_production_pumped_storage 
+                - electricity_consumption_pumped_storage
                 + electricity_production_natural_gas
             )::DECIMAL(12, 2) AS total_production 
             FROM {TABLE_NAME_SMARD} d
             ORDER BY unix_timestamp_ms ASC 
              ) t
         WHERE t.power_consumption_residual_load is not null 
-                and t.power_consumption_total is not null
-                and t.power_consumption_total != 0
+                and t.power_consumption_total is not null 
+                and t.power_consumption_total != 0 
+                AND t.electricity_production_photovoltaics <> {FLAG} 
+                AND t.electricity_production_wind_onshore <> {FLAG} 
+                AND t.electricity_production_wind_offshore <> {FLAG} 
+                -- NULL is automatically filtered out by these comparisons
         """
 
 
@@ -213,18 +224,18 @@ WITH prices AS (
         ), price_delta AS ( --1 min 3 s for this table
             SELECT dp.*,
                 (
-                   SELECT SUM(during_df.res_load)
+                   SELECT SUM((during_df.res_load - (dp.avg_res_load_power_before_after/4)))  -- assuming quarterhour resolution for res_load energy! 
                        FROM prices during_df
                        WHERE during_df.unix_timestamp_ms
                            BETWEEN dp.start_time AND dp.end_time
-                               AND during_df.res_load_power > dp.avg_res_load_power_before_after
+                               AND (during_df.res_load - (dp.avg_res_load_power_before_after/4)) > 0
                 )::DECIMAL(15, 2)  AS extent,
                 (
-                   SELECT SUM(during_df.res_load * during_df.ger_lux)
+                   SELECT SUM((during_df.res_load - (dp.avg_res_load_power_before_after/4)) * during_df.ger_lux) -- assuming quarterhour resolution! 
                        FROM prices during_df
                        WHERE during_df.unix_timestamp_ms
                            BETWEEN dp.start_time AND dp.end_time
-                               AND during_df.res_load_power > dp.avg_res_load_power_before_after
+                               AND (during_df.res_load - (dp.avg_res_load_power_before_after/4)) > 0
                 )::DECIMAL(15, 2)  AS storage_made_electricity_value,
                dp.avg_price_during_dunkelflaute
                    - (dp.avg_price_week_before_dunkelflaute + dp.avg_price_week_after_dunkelflaute) / 2
@@ -436,8 +447,8 @@ SELECT *, 'hour' AS resolution, -- renewable energy production index
 			+ ( radiation.diffuse_radiation_avg )
 		)::Decimal(8, 4), 2 ) AS repi_power1avg,
 		round( ( least(wind.wind_speed_100_avg, 11)^3 
-			+ ( radiation.direct_radiation_avg ) *2
-			+ ( radiation.diffuse_radiation_avg ) *2
+			+ radiation.direct_radiation_avg *2
+			+ radiation.diffuse_radiation_avg *2
 		)::Decimal(8, 4), 2 ) AS repi_power1avg2,
 		round( ( 1550 * (1- exp(-0.001 * pow(wind.wind_speed_100_avg, 3)))  -- adjusted for a smooth limit, cuts x^3 at x=9.8
                    + radiation.direct_radiation_avg *1.4
@@ -561,7 +572,29 @@ SELECT *, -- renewable energy production index
 		round( ( least(wind.wind_100m_log_previous_day3, 11)^3 
 			+ ( radiation.direct_radiation_avg_previous_day3 ) *2 
 			+ ( radiation.diffuse_radiation_avg_previous_day3 ) *2 
-		)::Decimal(8, 4), 2 ) AS repi_power1avg2_previous_day3
+		)::Decimal(8, 4), 2 ) AS repi_power1avg2_previous_day3,
+
+
+		round( ( 1550 * (1- exp(-0.001 * pow(wind.wind_100m_log, 3)))  -- adjusted for a smooth limit, cuts x^3 at x=9.8
+                   + radiation.direct_radiation_avg *1.4
+                   + radiation.diffuse_radiation_avg *1.4
+        )::Decimal(8, 4), 2 ) AS repi_power_exp,
+        
+		round( ( 1550 * (1- exp(-0.001 * pow(wind.wind_100m_log_previous_day1, 3)))  -- adjusted for a smooth limit, cuts x^3 at x=9.8
+                   + radiation.direct_radiation_avg_previous_day1 *1.4
+                   + radiation.diffuse_radiation_avg_previous_day1 *1.4
+        )::Decimal(8, 4), 2 ) AS repi_power_exp_previous_day1,
+        
+		round( ( 1550 * (1- exp(-0.001 * pow(wind.wind_100m_log_previous_day2, 3)))  -- adjusted for a smooth limit, cuts x^3 at x=9.8
+                   + radiation.direct_radiation_avg_previous_day2 *1.4
+                   + radiation.diffuse_radiation_avg_previous_day2 *1.4
+        )::Decimal(8, 4), 2 ) AS repi_power_exp_previous_day2,
+        
+		round( ( 1550 * (1- exp(-0.001 * pow(wind.wind_100m_log_previous_day3, 3)))  -- adjusted for a smooth limit, cuts x^3 at x=9.8
+                   + radiation.direct_radiation_avg_previous_day3 *1.4
+                   + radiation.diffuse_radiation_avg_previous_day3 *1.4
+        )::Decimal(8, 4), 2 ) AS repi_power_exp_previous_day3
+		
 FROM radiation
 NATURAL JOIN wind
 """

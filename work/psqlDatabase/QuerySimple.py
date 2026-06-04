@@ -1,4 +1,5 @@
 import psycopg2
+from psycopg2 import sql
 from Helper import FLAG
 
 
@@ -8,8 +9,15 @@ def get_timestamp_buckets( connection_params, table_name, filter_name ):
         conn = psycopg2.connect( **connection_params )
         cursor = conn.cursor()
 
-        cursor.execute( f"SELECT unix_timestamp_ms, region, resolution FROM {table_name} "
-                        f"WHERE {filter_name} = {FLAG} AND IS_BUCKET_TIMESTAMP;" )
+        query = sql.SQL("""
+            SELECT unix_timestamp_ms, region, resolution
+            FROM {table_name}
+            WHERE {filter_name} = %s AND IS_BUCKET_TIMESTAMP;
+        """).format(
+            table_name = sql.Identifier( table_name ),
+            filter_name = sql.Identifier( filter_name.lower() )
+        )
+        cursor.execute( query, (FLAG,) )
         rows = cursor.fetchall()
 
         column_names = [ desc[ 0 ] for desc in cursor.description ]
@@ -37,7 +45,10 @@ def get_all_rows( connection_params, table_name ):
         conn = psycopg2.connect( **connection_params )
         cursor = conn.cursor()
 
-        cursor.execute( f"SELECT * FROM {table_name}" )
+        query = sql.SQL("SELECT * FROM {table_name}").format(
+            table_name = sql.Identifier( table_name )
+        )
+        cursor.execute( query )
         rows = cursor.fetchall()
 
         column_names = [ desc[ 0 ] for desc in cursor.description ]

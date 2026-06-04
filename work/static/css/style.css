@@ -12,7 +12,7 @@ body {
     background-color: #333;
     color: white;
     padding: 1rem 0;
-    box-shadow: 0 0rem 2rem 0 #222222ff;
+    box-shadow: 0 0 2rem 0 #222222ff;
 }
 
 .nav-container {
@@ -270,5 +270,6 @@ For the Tom Selection Groups
     background: #fffff0;
     padding: .25em;
     margin: 8px;
+    width: 6.5cm;
     z-index: 1;
 }

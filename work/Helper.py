@@ -31,10 +31,11 @@ DB_PARAMS = {
     'port': 5432
 }
 
-OTHER_THAN_SMARD_FILTER_IDs = { 1, 2, 4, 5, 6, 10, 11, 12, 13, 14, 15, 16, 17 }
+OTHER_THAN_SMARD_FILTER_IDs = { 1, 2, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17 }
 # KEEP SPECIFIC IDS IN REGARD TO THEIR MEANING, they're used in the DB setup
 RE_SHARE_ID = 1
-WIND_SOLAR_ID = 6
+WIND_SOLAR_ID = 7
+WIND_SOLAR_SHARE_ID = 6
 ELEC_IMPORT_ID = 2
 ELEC_PRICE_CHANGE_ABS_ID = 4
 ELEC_PRICE_CHANGE_REL_ID = 5
@@ -47,7 +48,8 @@ repi_power1avg_ID = 15
 repi_square1avg_ID = 16
 repi_power_exp_ID = 17
 FILTER = {
-    "Anteil Photovoltaik-, Wind Onshore- und Wind (Computed)": WIND_SOLAR_ID,
+    "Summe von Photovoltaik-, Onshore- und Offshore-Wind (Computed)": WIND_SOLAR_ID,
+    "Anteil Photovoltaik-, Onshore- und Offshore-Wind (Computed)": WIND_SOLAR_SHARE_ID,
     "Anteil erneuerbarer Energien (Computed)": RE_SHARE_ID,
     "Importierter Strom (Computed) -don't use": ELEC_IMPORT_ID,
     "DE-LUX Anstieg Strom Absolut (Computed)": ELEC_PRICE_CHANGE_ABS_ID,
@@ -103,9 +105,10 @@ FILTER = bidict(FILTER)
 
 
 FilterTranslationsList = [
-    "Share_of_Photovoltaic_Wind_onshore_offshore_Computed",
+	"Sum_of_Photovoltaic_Wind_onshore_offshore_Computed",
+	"Share_of_Photovoltaic_Wind_onshore_offshore_Computed",
     "Share_of_Renewable_Energies_Computed",
-    "Import_to_Fix",
+    "Import_to_Validate",
     "GerLux_Price_Change_Abs_Computed",
     "GerLux_Price_Change_Rel_Computed",
 	"wind_speed_100_avg",

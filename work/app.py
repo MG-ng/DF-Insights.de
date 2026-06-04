@@ -112,7 +112,7 @@ def search():
 	print( "Matches for: ", resolution, region, threshold, unix_duration, start_ms, end_ms)
 
 	rows, columns = get_dunkelflaute_matches( region, resolution, threshold, unix_duration, start_ms, end_ms )
-	# print( f"Dunkelflaute: {rows = } & {columns = }" )
+	print( f"Dunkelflaute: {rows = } & {columns = }" )
 
 	if rows is None:
 		return { 'ordering': [], 'default': {'resolution': None, 'region': None}, 'series': [] }
