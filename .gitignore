@@ -6,3 +6,4 @@ modules.xml
 *.ipr
 *.iws
 .db-pass.txt
+*.cache.sqlite
