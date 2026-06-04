@@ -17,7 +17,7 @@ from psqlDatabase.QueryComplex import get_smard_timeseries, get_timeseries
 from psqlDatabase.dunkelflauteSearch import get_dunkelflaute_matches, get_dunkelflaute_timeseries, \
 	getEnrichedDunkelflauten
 
-## TODO: Change Server Configuration Path
+# TODO: Change Server Configuration Path
 
 app = Flask(__name__)
 
