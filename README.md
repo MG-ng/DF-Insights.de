@@ -5,7 +5,7 @@
 
 ## Test and Deploy 
 
-Use the built-in continuous integration in GitLab. 
+TODOs: 
 
 - [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/) 
 
