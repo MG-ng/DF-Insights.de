@@ -46,7 +46,7 @@ SQLAlchemy==2.0.43
 typing_extensions==4.14.1
 tzdata==2025.2
 url-normalize==2.2.1
-urllib3==2.5.0
+urllib3==2.7.0
 urllib3-future==2.13.903
 wassima==2.0.1
 Werkzeug==3.1.3
