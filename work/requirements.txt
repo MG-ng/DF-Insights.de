@@ -14,7 +14,7 @@ flatbuffers==25.2.10
 fonttools==4.59.2
 greenlet==3.2.4
 h11==0.16.0
-idna==3.10
+idna==3.15
 itsdangerous==2.2.0
 jh2==5.0.9
 Jinja2==3.1.6
