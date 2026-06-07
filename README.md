@@ -42,7 +42,7 @@ You should set the PostgreSQL database password before executing anything with
 
 
 ## Authors and acknowledgment 
-This project builds on top of APIs from SMARD and openweathermap.org 
+This project builds on top of APIs from SMARD and Open-Meteo 
 
 
 ## License 

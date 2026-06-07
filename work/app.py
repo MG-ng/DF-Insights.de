@@ -37,7 +37,7 @@ def index():
 def api():
 	filters = request.args.getlist( 'filters', type = int )  # filters contains the numeric ids
 	if len([id for id in filters if (id not in FILTER.values())]) != 0:
-		return "Data not available1", 404
+		return "Data not available!", 404
 	if not filters:  # no get parameters = filters
 		filters.append( FILTER[ FilterTranslations.inverse[ "Power_Consumption_Residual_load" ] ] )
 		filters.append( FILTER[ FilterTranslations.inverse[ "Power_Consumption_Total" ] ] )

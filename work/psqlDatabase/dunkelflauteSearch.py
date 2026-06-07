@@ -29,7 +29,8 @@ def get_dunkelflaute_matches( region, resolution, max_share, min_duration_ms, st
 			), cleaned as (
 				SELECT * FROM events WHERE event_bucket != 'nothing'
 			), start_end as (
-				SELECT *, LEAD( unix_timestamp_ms, 1, (select unix_timestamp_ms from cleaned order by unix_timestamp_ms desc limit 1))
+				SELECT *, LEAD( unix_timestamp_ms, 1, 
+						  (select unix_timestamp_ms from cleaned order by unix_timestamp_ms desc limit 1))
 					OVER (ORDER BY unix_timestamp_ms ASC) as end_time
 				FROM cleaned
 			), matches as (
@@ -94,12 +95,14 @@ def get_dunkelflaute_timeseries( region, resolution, max_share, min_duration_ms,
 			FROM {view_name_re_share_ext_trade} series
 			JOIN dunkelflauten df ON (series.unix_timestamp_ms - 1000 *60 *60 *24 *365::BIGINT < df.end_time
                                   AND series.unix_timestamp_ms >= df.start_time)
-            WHERE series.resolution='day'  -- To keep the answer fast
+            WHERE series.region=%s
+				AND series.resolution='day'  -- To keep the answer fast
+				AND series.unix_timestamp_ms BETWEEN %s AND %s
 			GROUP BY series.unix_timestamp_ms, series.region, series.resolution
 			ORDER BY series.unix_timestamp_ms ASC
 			OFFSET 365;
 			""" ).format( view_name_re_share_ext_trade = sql.Identifier( VIEW_NAME_RE_SHARE_EXT_TRADE ) )
-        cursor.execute( query, (max_share, region, resolution, start_ms, end_ms, min_duration_ms) )
+        cursor.execute( query, (max_share, region, resolution, start_ms, end_ms, min_duration_ms, region, start_ms, end_ms) )
         rows = cursor.fetchall()
 
         column_names = [ desc[ 0 ] for desc in cursor.description ]

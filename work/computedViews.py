@@ -54,25 +54,26 @@ def create_computed_view( connection_params, computed_view_name, view_sql ):
             """ )
             conn.commit()
         except psycopg2.Error as e:
+            conn.rollback()
             if str(e) == 'column "unix_timestamp_ms" does not exist':  # creating enriched dunkelflaute stats
                 cursor.execute( f"""
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_{computed_view_name}_unique_start_time
-                    ON {computed_view_name} (start_time);
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_{computed_view_name}_unique_duration
-                    ON {computed_view_name} (duration);
+                    ON {computed_view_name} (start_time, end_time);
                 """ )
                 conn.commit()
+            else:
+                print( str(e) )
         finally:
-            print( "Created unique index on View successfully" )
+            print( "Worked on a unique index for the View: " + str(computed_view_name) )
 
         # CONCURRENTLY resulted in: CONCURRENTLY cannot be used when the materialized view is not populated
-        # cursor.execute( f"""
+        # cursor.execute(f"""
         #     REFRESH MATERIALIZED VIEW {computed_view_name} WITH DATA;
-        # """ )
+        # """)
         # conn.commit()
-        # print( "Filled Materialized View successfully" )
+        # print("Filled Materialized View successfully")
         #
-        # print( f"View '{computed_view_name}' created successfully." )
+        # print(f"View '{computed_view_name}' created successfully.")
 
         return True
 
@@ -94,6 +95,7 @@ def create_computed_view( connection_params, computed_view_name, view_sql ):
             cursor.close()
         if conn:
             conn.close()
+
 
 
 if __name__ == "__main__":

@@ -149,12 +149,13 @@ WITH prices AS (
      dunkelflauten AS ( -- 1 sec for this table
         SELECT start_time, end_time, duration
         FROM matches
-    ), res_load AS ( -- 17 seconds for this table
-        SELECT pd.*,
-            (
-               SELECT round( SUM(p.res_load) / (pd.duration/(1000*60*60::BIGINT)), 2)  -- MW
-                   FROM prices p
-                   WHERE p.unix_timestamp_ms BETWEEN pd.start_time AND pd.end_time) AS avg_res_load_power_during_df,
+    ), res_load AS ( -- 17 seconds for this table 
+        SELECT pd.*, 
+            ( 
+               SELECT round( SUM(p.res_load) / (pd.duration/(1000*60*60::BIGINT)), 2)  -- MW 
+                   FROM prices p 
+                   WHERE p.unix_timestamp_ms >= pd.start_time AND p.unix_timestamp_ms < pd.end_time ) 
+                   			AS avg_res_load_power_during_df, 
            (
                SELECT SUM(p.res_load)
                    FROM prices p
@@ -341,8 +342,8 @@ WITH radiation AS (
     FROM {TABLE_NAME_OPEN_METEO} weather
     WHERE weather.lat < 52
     GROUP BY weather.date
-), wind_dir_count AS ( -- count 12 locations by 8 weather direction
-    SELECT COUNT(*) FILTER (WHERE 337.5 < wind_direction_100m AND wind_direction_100m <= 22.5) AS N,
+), wind_dir_count AS ( -- count 12 locations by 8 weather directions
+    SELECT COUNT(*) FILTER (WHERE 337.5 < wind_direction_100m OR wind_direction_100m <= 22.5) AS N,
            COUNT(*) FILTER (WHERE 22.5 < wind_direction_100m AND wind_direction_100m <= 67.5) AS NE,
            COUNT(*) FILTER (WHERE 67.5 < wind_direction_100m AND wind_direction_100m <= 112.5) AS E,
            COUNT(*) FILTER (WHERE 112.5 < wind_direction_100m AND wind_direction_100m <= 157.5) AS SE,

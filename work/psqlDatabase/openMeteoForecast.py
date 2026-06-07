@@ -202,7 +202,7 @@ if __name__ == "__main__":
 			hourly_dataframe = pd.DataFrame( data = hourly_data )
 			# print( "\nHourly data\n", hourly_dataframe )
 
-			hourly_dataframe.set_index( [ 'model', 'date', 'lat', 'lng', 'temporal_resolution' ] )
+			hourly_dataframe.set_index( [ 'model', 'timestamp_s', 'lat', 'lng', 'temporal_resolution' ] )
 
 			hourly_dataframe.to_sql( 'weather_forecasts_data_raw', engine, if_exists = 'append' )
 
