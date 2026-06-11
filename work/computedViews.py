@@ -1,6 +1,5 @@
-from typing import Literal, get_args
-
 import psycopg2
+from psycopg2 import sql
 import sys
 
 from config import DB_PARAMS
@@ -16,10 +15,11 @@ def create_computed_view( connection_params, computed_view_name, view_sql ):
 
     Args:
         connection_params (dict): Database connection parameters
-        table_name (str): Name of the table to create
+        computed_view_name (str): Name of the materialized view
+        view_sql (str): Query used to populate the materialized view
 
     Returns:
-        bool: True if table creation was successful, False otherwise
+        bool: True if creation or refresh was successful, False otherwise
     """
     conn = None
     cursor = None
@@ -28,66 +28,84 @@ def create_computed_view( connection_params, computed_view_name, view_sql ):
         conn = psycopg2.connect( **connection_params )
         cursor = conn.cursor()
 
-        create_view_sql = f"""
-            CREATE MATERIALIZED VIEW IF NOT EXISTS {computed_view_name} 
-            AS ( {view_sql} )
-            WITH DATA;
-        """ # no loading and querying with "no data" possible yet || MATERIALIZED prevent proper Code coloring by PyCharm :/
+        cursor.execute( """
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_matviews
+                WHERE schemaname = current_schema()
+                  AND matviewname = %s
+            );
+        """, (computed_view_name,) )
+        view_exists = cursor.fetchone()[0]
 
-        # https://www.postgresql.org/docs/current/sql-creatematerializedview.html
-        # CREATE MATERIALIZED VIEW defines a materialized view of a query.
-        # The query is executed and used to populate the view at the time the command is issued (unless WITH NO DATA is used)
-        # and may be refreshed later using REFRESH MATERIALIZED VIEW.
+        if view_exists:
+            refresh_view_sql = sql.SQL( "REFRESH MATERIALIZED VIEW {view};" ).format(
+                view = sql.Identifier( computed_view_name )
+            )
+            print( refresh_view_sql.as_string( conn ) )
+            cursor.execute( refresh_view_sql )
+        else:
+            create_view_sql = sql.SQL( """
+                CREATE MATERIALIZED VIEW {view}
+                AS ( {view_query} )
+                WITH DATA;
+            """ ).format(
+                view = sql.Identifier( computed_view_name ),
+                view_query = sql.SQL( view_sql )
+            )
+            print( create_view_sql.as_string( conn ) )
+            cursor.execute( create_view_sql )
 
-        # REFRESH MATERIALIZED VIEW computedData WITH NO DATA;
-        # Frees the storage and leaves it in an unscannable state
-
-
-        print(create_view_sql)
-        cursor.execute( create_view_sql )
         conn.commit()
-        print( "Created View successfully" )
+        print( "Materialized view is populated." )
 
-        try:
-            cursor.execute( f"""
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_{computed_view_name}_unique
-                ON {computed_view_name} (unix_timestamp_ms, region, resolution);
-            """ )
+        cursor.execute( """
+            SELECT attribute.attname
+            FROM pg_attribute attribute
+            JOIN pg_class relation ON relation.oid = attribute.attrelid
+            JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+            WHERE namespace.nspname = current_schema()
+              AND relation.relname = %s
+              AND attribute.attnum > 0
+              AND NOT attribute.attisdropped;
+        """, (computed_view_name,) )
+        view_columns = { row[0] for row in cursor.fetchall() }
+
+        index_candidates = [
+            ("unix_timestamp_ms", "region", "resolution"),
+            ("start_time", "end_time"),
+            ("timestamp_s", "model", "temporal_resolution"),
+            ("date", "resolution"),
+        ]
+        index_columns = next(
+            (columns for columns in index_candidates if set(columns).issubset(view_columns)),
+            None,
+        )
+
+        if index_columns:
+            create_index_sql = sql.SQL( """
+                CREATE UNIQUE INDEX IF NOT EXISTS {index}
+                ON {view} ({columns});
+            """ ).format(
+                index = sql.Identifier( f"idx_{computed_view_name}_unique" ),
+                view = sql.Identifier( computed_view_name ),
+                columns = sql.SQL( ", " ).join( sql.Identifier( column ) for column in index_columns )
+            )
+            cursor.execute( create_index_sql )
             conn.commit()
-        except psycopg2.Error as e:
-            conn.rollback()
-            if str(e) == 'column "unix_timestamp_ms" does not exist':  # creating enriched dunkelflaute stats
-                cursor.execute( f"""
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_{computed_view_name}_unique_start_time
-                    ON {computed_view_name} (start_time, end_time);
-                """ )
-                conn.commit()
-            else:
-                print( str(e) )
-        finally:
-            print( "Worked on a unique index for the View: " + str(computed_view_name) )
-
-        # CONCURRENTLY resulted in: CONCURRENTLY cannot be used when the materialized view is not populated
-        # cursor.execute(f"""
-        #     REFRESH MATERIALIZED VIEW {computed_view_name} WITH DATA;
-        # """)
-        # conn.commit()
-        # print("Filled Materialized View successfully")
-        #
-        # print(f"View '{computed_view_name}' created successfully.")
+            print( f"Unique index uses columns: {', '.join(index_columns)}" )
+        else:
+            print( f"No suitable unique index columns found for {computed_view_name}." )
 
         return True
 
     except psycopg2.Error as e:
-        if "already exists" in str( e ):
-            print( f"View '{computed_view_name}' already exists." )
-        else:
-            print( f"Database error during table creation: {e}" )
+        print( f"Database error while preparing materialized view '{computed_view_name}': {e}" )
         if conn:
             conn.rollback()
         return False
     except Exception as e:
-        print( f"Unexpected error during table creation: {e}" )
+        print( f"Unexpected error while preparing materialized view '{computed_view_name}': {e}" )
         if conn:
             conn.rollback()
         return False

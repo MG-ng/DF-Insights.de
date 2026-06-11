@@ -3,7 +3,7 @@ import openmeteo_requests
 import pandas as pd
 import requests_cache
 from retry_requests import retry
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 
 from config import REQUEST_CACHE_DIR, sqlalchemy_database_url
 
@@ -20,6 +20,26 @@ models = {
 	22: 'icon_eu',
  	3: 'gfs_global',  # GFS doesn't deliver anything for wind on 180m height
 }
+
+
+def replace_forecast_rows(engine, dataframe, model, start_timestamp, end_timestamp, clear_model_range):
+	with engine.begin() as connection:
+		if clear_model_range and inspect(connection).has_table(TABLE_NAME_FORECASTS):
+			connection.execute(
+				text(f"""
+					DELETE FROM {TABLE_NAME_FORECASTS}
+					WHERE timestamp_s >= :start_timestamp
+					  AND timestamp_s < :end_timestamp
+					  AND model = :model;
+				"""),
+				{
+					"start_timestamp": start_timestamp,
+					"end_timestamp": end_timestamp,
+					"model": model,
+				},
+			)
+		dataframe.to_sql(TABLE_NAME_FORECASTS, connection, if_exists="append", index=False)
+
 
 """ 12 locations from NW to SE (top left to bottom right)
 54, 7
@@ -79,6 +99,9 @@ if __name__ == "__main__":
 			"cell_selection": "nearest",
 		}
 		responses = openmeteo.weather_api( url, params = params )
+		if not responses:
+			raise RuntimeError(f"Open-Meteo returned no previous-run forecasts for {model}.")
+		clear_model_range = True
 
 		# Process 12 locations and 4 models
 		for response in responses:
@@ -200,6 +223,12 @@ if __name__ == "__main__":
 			hourly_dataframe = pd.DataFrame( data = hourly_data )
 			# print( "\nHourly data\n", hourly_dataframe )
 
-			hourly_dataframe.set_index( [ 'model', 'timestamp_s', 'lat', 'lng', 'temporal_resolution' ] )
-
-			hourly_dataframe.to_sql( TABLE_NAME_FORECASTS, engine, if_exists = 'append' )
+			replace_forecast_rows(
+				engine,
+				hourly_dataframe,
+				models[response.Model()],
+				hourly.Time(),
+				hourly.TimeEnd(),
+				clear_model_range,
+			)
+			clear_model_range = False

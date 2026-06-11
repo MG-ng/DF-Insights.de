@@ -2,9 +2,10 @@ import openmeteo_requests
 import pandas as pd
 import requests_cache
 from retry_requests import retry
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 
 from config import REQUEST_CACHE_DIR, sqlalchemy_database_url
+from Helper import TABLE_NAME_OPEN_METEO
 
 
 """ 12 locations from NW to SE (top left to bottom right)
@@ -37,6 +38,23 @@ openmeteo = openmeteo_requests.Client( session = retry_session )
 url = "https://archive-api.open-meteo.com/v1/archive"
 
 
+def replace_historical_rows(dataframe, start_date, end_date, clear_date_range):
+	with engine.begin() as connection:
+		if clear_date_range and inspect(connection).has_table(TABLE_NAME_OPEN_METEO):
+			connection.execute(
+				text(f"""
+					DELETE FROM {TABLE_NAME_OPEN_METEO}
+					WHERE date >= :start_date
+					  AND date < :end_date;
+				"""),
+				{
+					"start_date": start_date,
+					"end_date": end_date,
+				},
+			)
+		dataframe.to_sql(TABLE_NAME_OPEN_METEO, connection, if_exists="append", index=False)
+
+
 if __name__ == '__main__':
 
 	for year in [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]:
@@ -53,6 +71,9 @@ if __name__ == '__main__':
 			"wind_speed_unit": "ms",
 		}
 		responses = openmeteo.weather_api( url, params = params )
+		if not responses:
+			raise RuntimeError(f"Open-Meteo returned no historical data for {year}.")
+		clear_date_range = True
 
 		# Process 12 locations
 		for response in responses:
@@ -111,9 +132,12 @@ if __name__ == '__main__':
 			hourly_dataframe = pd.DataFrame( data = hourly_data )
 			print( "\nHourly data\n", hourly_dataframe )
 
-			hourly_dataframe.set_index( ['date', 'lat', 'lng', 'temporal_resolution' ] )
-
-			hourly_dataframe.to_sql('historical_weather_data_raw', engine, if_exists='append' )
-
-
-
+			replace_historical_rows(
+				hourly_dataframe,
+				hourly_dataframe["date"].iloc[0].to_pydatetime(),
+				pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True)
+					.tz_convert("Europe/Berlin")
+					.to_pydatetime(),
+				clear_date_range,
+			)
+			clear_date_range = False

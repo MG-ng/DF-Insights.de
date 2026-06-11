@@ -4,8 +4,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-REQUEST_CACHE_DIR = PROJECT_ROOT / "work" / ".cache"
+WORK_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = WORK_DIR.parent
+REQUEST_CACHE_DIR = WORK_DIR / ".cache"
 load_dotenv(PROJECT_ROOT / ".env", override=False)
 
 

@@ -52,7 +52,7 @@ def create_table_with_schema( connection_params, table_name ):
         numeric_cols_sql = ",\n    ".join( [ f"{col} DECIMAL(11,2)" for col in numeric_columns ] )
 
         create_table_sql = f"""
-        CREATE TABLE {table_name} (
+        CREATE TABLE IF NOT EXISTS {table_name} (
             unix_timestamp_ms BIGINT,
             is_bucket_timestamp BOOLEAN,
             region region_type,
@@ -65,15 +65,12 @@ def create_table_with_schema( connection_params, table_name ):
         print(create_table_sql)
         cursor.execute( create_table_sql )
         conn.commit()
-        print( f"Table '{table_name}' created successfully." )
+        print( f"Table '{table_name}' is ready." )
 
         return True
 
     except psycopg2.Error as e:
-        if "already exists" in str( e ):
-            print( f"Table '{table_name}' already exists." )
-        else:
-            print( f"Database error during table creation: {e}" )
+        print( f"Database error during table creation: {e}" )
         if conn:
             conn.rollback()
         return False
@@ -152,27 +149,9 @@ def insert_optional_data_in_batches( connection_params, table_name, data_rows, d
         if conn:
             conn.close()
 
-# Example usage
 if __name__ == "__main__":
-
-    # Example data (replace with your actual data)
-    # Each row should have: unix_timestamp_ms + region + resolution + 37 numeric values
-    sample_data = [
-        # (unix_timestamp_ms, is_bucket_timestamp, region, resolution, filter-values)
-        (0, False, 'DE', 'hour', *[ None ] * 37),  # Fill the remaining 37 columns with None (NULL)
-    ]
-
-    # Step 1: Create the table
     if create_table_with_schema( DB_PARAMS, TABLE_NAME_SMARD ):
         print( "Table creation completed successfully!" )
-
-        # Step 2: Insert the sample data
-        if insert_optional_data_in_batches( DB_PARAMS, TABLE_NAME_SMARD, sample_data, "unix_timestamp_ms" ):
-            print( "Data insertion completed successfully!" )
-            print( "Operation completed successfully!" )
-        else:
-            print( "Data insertion failed!" )
-            sys.exit( 1 )
     else:
         print( "Table creation failed!" )
         sys.exit( 1 )

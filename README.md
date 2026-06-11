@@ -47,6 +47,29 @@ Then set the PostgreSQL credentials in `.env`. Existing shell environment
 variables take precedence over the file. The old `DBP` variable remains
 supported as a fallback for `DB_PASSWORD`.
 
+## Database initialization
+
+Run the database setup as one sequential job. Each data import runs in a
+separate process, so its memory is released before the next stage starts.
+The complete initial import can take several hours:
+
+```shell
+nohup .venv/bin/python -u work/databaseSetupAll.py > ~/database_setup.log 2>&1 &
+```
+
+Do not run the individual SMARD or Open-Meteo import scripts at the same time.
+Each stage starts only after the preceding dependency exits successfully.
+If a stage fails, the setup stops instead of building dependent data from an
+incomplete import.
+On a low-memory server, stop the Gunicorn service during the initial import.
+Use `tail -f ~/database_setup.log` to follow progress.
+
+When earlier stages are already complete, resume at a named stage:
+
+```shell
+.venv/bin/python -u work/databaseSetupAll.py --start-at historical-weather
+```
+
 
 ## Authors and acknowledgment 
 This project builds on top of APIs from SMARD and Open-Meteo 
