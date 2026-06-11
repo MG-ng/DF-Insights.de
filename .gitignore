@@ -8,3 +8,10 @@ modules.xml
 *.iws
 .db-pass.txt
 *.cache.sqlite
+
+.env
+*.log
+.DS_Store
+dist/
+build/
+.pytest_cache/
