@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+REQUEST_CACHE_DIR = PROJECT_ROOT / "work" / ".cache"
 load_dotenv(PROJECT_ROOT / ".env", override=False)
 
 

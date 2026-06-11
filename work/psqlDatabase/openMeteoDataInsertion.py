@@ -4,7 +4,7 @@ import requests_cache
 from retry_requests import retry
 from sqlalchemy import create_engine
 
-from config import sqlalchemy_database_url
+from config import REQUEST_CACHE_DIR, sqlalchemy_database_url
 
 
 """ 12 locations from NW to SE (top left to bottom right)
@@ -27,7 +27,8 @@ engine = create_engine(sqlalchemy_database_url())
 
 
 # Set up the Open-Meteo API client with cache and retry on error
-cache_session = requests_cache.CachedSession( '../../.cache', expire_after = -1 )
+REQUEST_CACHE_DIR.mkdir(parents = True, exist_ok = True)
+cache_session = requests_cache.CachedSession( str(REQUEST_CACHE_DIR / 'openmeteo_archive'), expire_after = -1 )
 retry_session = retry( cache_session, retries = 5, backoff_factor = 0.2 )
 openmeteo = openmeteo_requests.Client( session = retry_session )
 
@@ -113,7 +114,6 @@ if __name__ == '__main__':
 			hourly_dataframe.set_index( ['date', 'lat', 'lng', 'temporal_resolution' ] )
 
 			hourly_dataframe.to_sql('historical_weather_data_raw', engine, if_exists='append' )
-
 
 
 

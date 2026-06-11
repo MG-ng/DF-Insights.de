@@ -8,6 +8,7 @@ modules.xml
 *.iws
 .db-pass.txt
 *.cache.sqlite
+.cache/
 .env
 .env.*
 !.env.example
