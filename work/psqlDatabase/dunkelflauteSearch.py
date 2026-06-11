@@ -1,7 +1,8 @@
 import psycopg2
 from psycopg2 import sql
 
-from Helper import DB_PARAMS, VIEW_NAME_RE_SHARE_EXT_TRADE
+from config import DB_PARAMS
+from Helper import VIEW_NAME_RE_SHARE_EXT_TRADE
 
 
 def get_dunkelflaute_matches( region, resolution, max_share, min_duration_ms, start_ms, end_ms ):

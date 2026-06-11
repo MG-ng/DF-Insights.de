@@ -4,7 +4,10 @@ import pandas as pd
 import requests_cache
 from retry_requests import retry
 from sqlalchemy import create_engine
-from Helper import FILTER, TABLE_NAME_SMARD, DB_PARAMS, FilterTranslations
+
+from config import sqlalchemy_database_url
+
+from Helper import TABLE_NAME_FORECASTS
 
 # from sklearn.metrics import root_mean_squared_error
 
@@ -34,14 +37,8 @@ models = {
 """
 
 if __name__ == "__main__":
-	engine = create_engine('postgresql://' + DB_PARAMS["user"] + ':' + DB_PARAMS["password"] +
-						   '@' + str(DB_PARAMS["host"]) + ':' + str(DB_PARAMS["port"]) + '/' + DB_PARAMS["database"])
+	engine = create_engine(sqlalchemy_database_url())
 
-	import openmeteo_requests
-
-	import pandas as pd
-	import requests_cache
-	from retry_requests import retry
 
 	# Set up the Open-Meteo API client with cache and retry on error
 	cache_session = requests_cache.CachedSession( '.cache', expire_after = 3600 )
@@ -73,11 +70,11 @@ if __name__ == "__main__":
 						"wind_direction_180m_previous_day1", "wind_direction_180m_previous_day2",
 						"wind_direction_180m_previous_day3" ],
 			"models": model,
-			"timezone": [ "UTC", "UTC", "UTC", "UTC", "UTC", "UTC", "UTC", "UTC", "UTC", "UTC", "UTC", "UTC" ],
+			"timezone": ["UTC"] * 12,
 			"timeformat": "unixtime",
 			"wind_speed_unit": "ms",
-			"start_date": "2024-04-01",
-			"end_date": "2025-09-01",
+			"start_date": "2024-06-01",
+			"end_date": "2026-06-01",
 			"cell_selection": "nearest",
 		}
 		responses = openmeteo.weather_api( url, params = params )
@@ -204,6 +201,4 @@ if __name__ == "__main__":
 
 			hourly_dataframe.set_index( [ 'model', 'timestamp_s', 'lat', 'lng', 'temporal_resolution' ] )
 
-			hourly_dataframe.to_sql( 'weather_forecasts_data_raw', engine, if_exists = 'append' )
-
-
+			hourly_dataframe.to_sql( TABLE_NAME_FORECASTS, engine, if_exists = 'append' )

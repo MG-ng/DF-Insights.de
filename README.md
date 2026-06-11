@@ -37,8 +37,15 @@ If you have ideas for releases in the future, let me know.
 ## Contributing 
 Contributions are welcomed. 
 
-You should set the PostgreSQL database password before executing anything with 
-`export DBP="your-password-to-change"` 
+Create the local environment file before running the application:
+
+```shell
+cp .env.example .env
+```
+
+Then set the PostgreSQL credentials in `.env`. Existing shell environment
+variables take precedence over the file. The old `DBP` variable remains
+supported as a fallback for `DB_PASSWORD`.
 
 
 ## Authors and acknowledgment 
@@ -53,4 +60,3 @@ No warranties provided.
 Almost all the features on the TODO List were achieved. 
 Development of further functionality can be requested. 
 Please reach out for more details! 
-

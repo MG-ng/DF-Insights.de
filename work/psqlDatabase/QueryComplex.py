@@ -2,7 +2,8 @@ import time
 
 import psycopg2
 from psycopg2 import sql
-from Helper import (TABLE_NAME_SMARD, DB_PARAMS, FILTER, FilterTranslations, OTHER_THAN_SMARD_FILTER_IDs,
+from config import DB_PARAMS
+from Helper import (TABLE_NAME_SMARD, FILTER, FilterTranslations, OTHER_THAN_SMARD_FILTER_IDs,
 					VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE, VIEW_NAME_HISTORICAL_WEATHER_AGG)
 
 

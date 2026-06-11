@@ -2,7 +2,8 @@ import psycopg2
 from psycopg2.extras import execute_batch
 import sys
 
-from Helper import FilterTranslations, TABLE_NAME_SMARD, DB_PARAMS, FILTER, OTHER_THAN_SMARD_FILTER_IDs
+from config import DB_PARAMS
+from Helper import FilterTranslations, TABLE_NAME_SMARD, FILTER, OTHER_THAN_SMARD_FILTER_IDs
 
 
 allCols = list( FilterTranslations.values() )

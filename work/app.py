@@ -11,6 +11,7 @@ import requests
 from flask import Flask, render_template, request
 from numpy.matlib import empty
 
+from config import APP_DEBUG, APP_HOST, APP_PORT
 from Helper import REGION_LIST, FILTER, FilterTranslations, FLAG, Resolution, unix_time_duration, repi_power1avg2_ID
 # These imports crash if app.py is in a separate folder, not seeing psqlDatabase/
 from psqlDatabase.QueryComplex import get_smard_timeseries, get_timeseries
@@ -158,7 +159,7 @@ def trend():
 def enrichedDF():
 	tableName = request.args.get( 'tableName', "computed_data_dunkelflauten_enriched30", type = str )
 	if tableName not in ["computed_data_dunkelflauten_enriched" + str(percent) for percent in
-						 [15, 20, 25, 30, 35, 40, 45, 50, 55]]:
+						 [10, 15, 20, 25, 30, 35, 40, 45, 50, 55]]:
 		return "Data not available", 404
 	rows, columns = getEnrichedDunkelflauten( tableName )
 
@@ -230,4 +231,4 @@ def forecast():
 	return { "REPIs": repis }
 
 if __name__ == '__main__':
-	app.run(debug=True)
+	app.run(host=APP_HOST, port=APP_PORT, debug=APP_DEBUG)

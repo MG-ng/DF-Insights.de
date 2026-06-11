@@ -3,11 +3,8 @@ import pandas as pd
 import requests_cache
 from retry_requests import retry
 from sqlalchemy import create_engine
-from sqlalchemy.util import ellipses_string
 
-from ..Helper import FILTER, TABLE_NAME_SMARD, DB_PARAMS, FilterTranslations, VIEW_NAME_HISTORICAL_WEATHER_AGG
-from computedViews import create_computed_view
-from psqlDatabase.viewsSQL import historical_weather_agg_view_sql
+from config import sqlalchemy_database_url
 
 
 """ 12 locations from NW to SE (top left to bottom right)
@@ -26,8 +23,7 @@ from psqlDatabase.viewsSQL import historical_weather_agg_view_sql
 """
 
 
-engine = create_engine('postgresql://' + DB_PARAMS["user"] + ':' + DB_PARAMS["password"] +
-					   '@' + str(DB_PARAMS["host"]) + ':' + str(DB_PARAMS["port"]) + '/' + DB_PARAMS["database"])
+engine = create_engine(sqlalchemy_database_url())
 
 
 # Set up the Open-Meteo API client with cache and retry on error
@@ -42,12 +38,12 @@ url = "https://archive-api.open-meteo.com/v1/archive"
 
 if __name__ == '__main__':
 
-	for year in [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]:
+	for year in [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]:
 		params = {
 			"latitude": [ 54, 54, 54, 52, 52, 52, 50, 50, 50, 48, 48, 48 ],
 			"longitude": [ 7, 10, 13, 7, 10, 13, 7, 10, 13, 7, 10, 13 ],
 			"start_date": 	str(year) + "-01-01",
-			"end_date": 	str(year) + "-12-31" if year!=2025 else (str(year) + "-08-01"),  # More Weather than SMARD data needed
+			"end_date": 	str(year) + "-12-31" if year!=2026 else (str(year) + "-06-01"),  # More Weather than SMARD data needed
 			"hourly": [ "temperature_2m", "wind_speed_10m", "wind_speed_100m", "wind_direction_10m", "wind_direction_100m",
 						"direct_radiation", "diffuse_radiation" ],
 			"timezone": [ "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin",
@@ -119,10 +115,5 @@ if __name__ == '__main__':
 			hourly_dataframe.to_sql('historical_weather_data_raw', engine, if_exists='append' )
 
 
-
-
-
-
-# create_computed_view(DB_PARAMS, VIEW_NAME_HISTORICAL_WEATHER_AGG, historical_weather_agg_view_sql)
 
 

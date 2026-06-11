@@ -3,7 +3,8 @@ from typing import Literal, get_args
 import psycopg2
 import sys
 
-from Helper import DB_PARAMS, VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE, VIEW_NAME_DUNKELFLAUTEN_STATS, \
+from config import DB_PARAMS
+from Helper import VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE, VIEW_NAME_DUNKELFLAUTEN_STATS, \
 	VIEW_NAME_HISTORICAL_WEATHER_AGG, VIEW_NAME_WEATHER_FORECASTS_AGG
 from psqlDatabase.viewsSQL import dunkelflauten_stats_view_sql, re_share_import_view_sql, price_change_view_sql, \
 	historical_weather_agg_view_sql, historical_weather_forecasts_agg_view_sql
@@ -124,4 +125,3 @@ if __name__ == "__main__":
             else:
                 print( "View creation failed!" )
                 sys.exit( 1 )
-

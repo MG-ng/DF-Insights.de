@@ -8,8 +8,10 @@ modules.xml
 *.iws
 .db-pass.txt
 *.cache.sqlite
-
 .env
+.env.*
+!.env.example
+
 *.log
 .DS_Store
 dist/

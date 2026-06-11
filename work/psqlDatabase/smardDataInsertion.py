@@ -3,7 +3,8 @@ from decimal import getcontext
 
 from requests import get
 
-from Helper import FILTER, TABLE_NAME_SMARD, DB_PARAMS, FLAG, Resolution, \
+from config import DB_PARAMS
+from Helper import FILTER, TABLE_NAME_SMARD, FLAG, Resolution, \
 	FilterTranslationsList
 from QuerySimple import get_timestamp_buckets
 from databaseSetup import insert_optional_data_in_batches
@@ -76,7 +77,6 @@ for filterIndex, currentFilter in enumerate( allFilters ):
 
 # Some Fields keep their FLAG because the actual bucket returns no value but null for this timestamp
 # e.g. curl https://www.smard.de/app/chart_data/4997/DE/4997_DE_day_1388530800000.json
-
 
 
 

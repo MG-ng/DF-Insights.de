@@ -1,5 +1,4 @@
 from bidict import bidict
-import os
 from enum import Enum, unique
 
 
@@ -16,20 +15,6 @@ VIEW_NAME_DUNKELFLAUTEN_STATS = 'computed_data_dunkelflauten_enriched'
 VIEW_NAME_HISTORICAL_WEATHER_AGG = 'computed_data_historical_weather_agg'
 VIEW_NAME_WEATHER_FORECASTS_AGG = 'computed_data_weather_forecasts_agg'
 FLAG = -1e8
-
-# Reading from environment variable
-# If not set, program results in Database error during data insertion:
-# connection to server at "localhost" (127.0.0.1), port 5432 failed: fe_sendauth: no password supplied
-envPassword = os.getenv( 'DBP' )
-db_host = os.getenv( 'DB_HOST', 'localhost' )
-
-DB_PARAMS = {
-    'host': db_host,
-    'database': 'smard_data',
-    'user': 'remoteu',
-    'password': envPassword,
-    'port': 5432
-}
 
 OTHER_THAN_SMARD_FILTER_IDs = { 1, 2, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17 }
 # KEEP SPECIFIC IDS IN REGARD TO THEIR MEANING, they're used in the DB setup
@@ -202,4 +187,3 @@ def unix_time_duration(duration, resolution):
     if resolution == Resolution.WEEK: return durationMs
 
     raise TypeError("Invalid resolution. Must be 'hour', 'day', or 'week'.")
-

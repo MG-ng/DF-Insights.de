@@ -1,4 +1,3 @@
-import os
 from typing import get_args, Literal
 
 import numpy as np
@@ -9,7 +8,8 @@ from sqlalchemy import create_engine
 import scipy
 import dask.dataframe as dd
 
-from psqlDatabase.openMeteoForecast import models
+from config import sqlalchemy_database_url
+from psqlDatabase.openMeteoForecastInsertion import models
 
 
 # TODO: Try exporting in float32 instead of float64 and int32 instead of int64
@@ -18,18 +18,7 @@ from psqlDatabase.openMeteoForecast import models
 # Consider Assumptions: If your data is not normally distributed, or you suspect a non-linear relationship, choose Spearman or Kendall.
 # Evaluate Sensitivity to Outliers: If you have outliers, Spearman or Kendall are better choices.
 
-envPassword = os.getenv( 'DBP' )
-db_host = os.getenv( 'DB_HOST', 'localhost' )
-DB_PARAMS = {
-    'host': db_host,
-    'database': 'smard_data',
-    'user': 'remoteu',
-    'password': envPassword,
-    'port': 5432
-}
-
-engine = create_engine('postgresql://' + DB_PARAMS["user"] + ':' + DB_PARAMS["password"] +
-					   '@' + str(DB_PARAMS["host"]) + ':' + str(DB_PARAMS["port"]) + '/' + DB_PARAMS["database"])
+engine = create_engine(sqlalchemy_database_url())
 
 
 # Creation of the matrices on the 1GB RAM server only for the small DF datasets
@@ -171,4 +160,3 @@ for model in models.values():
 
 # Import the exported H5 file for fast (~1min/img) matrix generation on a free Google Colab
 # using the google_colab_code.py file
-
