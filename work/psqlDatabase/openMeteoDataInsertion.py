@@ -1,10 +1,9 @@
 import openmeteo_requests
 import pandas as pd
-import requests_cache
 from retry_requests import retry
 from sqlalchemy import create_engine, inspect, text
 
-from config import REQUEST_CACHE_DIR, sqlalchemy_database_url
+from config import create_cached_http_session, sqlalchemy_database_url
 from Helper import TABLE_NAME_OPEN_METEO
 
 
@@ -28,8 +27,7 @@ engine = create_engine(sqlalchemy_database_url())
 
 
 # Set up the Open-Meteo API client with cache and retry on error
-REQUEST_CACHE_DIR.mkdir(parents = True, exist_ok = True)
-cache_session = requests_cache.CachedSession( str(REQUEST_CACHE_DIR / 'openmeteo_archive'), expire_after = -1 )
+cache_session = create_cached_http_session("openmeteo_archive", expire_after=-1)
 retry_session = retry( cache_session, retries = 5, backoff_factor = 0.2 )
 openmeteo = openmeteo_requests.Client( session = retry_session )
 

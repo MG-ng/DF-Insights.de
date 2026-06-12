@@ -64,6 +64,14 @@ incomplete import.
 On a low-memory server, stop the Gunicorn service during the initial import.
 Use `tail -f ~/database_setup.log` to follow progress.
 
+If a previous `sudo` run created the cache as root, restore ownership before
+resuming:
+
+```shell
+sudo chown -R "$USER":"$(id -gn)" work/.cache
+.venv/bin/python -u work/databaseSetupAll.py --start-at forecast-weather
+```
+
 When earlier stages are already complete, resume at a named stage:
 
 ```shell

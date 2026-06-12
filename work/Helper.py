@@ -142,9 +142,6 @@ FilterTranslationsList = [
     "Production_Forecast_Wind_and_PV",
     "Production_Forecast_Total"
 ]
-print( [x for x in FilterTranslationsList if x.find(" ") != -1] )
-print()
-# print( len( FilterTranslations ) )
 assert len( FilterTranslationsList ) == len( FILTER.keys() )
 
 FilterTranslations = bidict( zip( FILTER.keys(), FilterTranslationsList ) )

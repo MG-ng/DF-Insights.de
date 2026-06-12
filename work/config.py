@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -46,6 +47,32 @@ DB_PARAMS = {
 APP_HOST = os.getenv("APP_HOST", "127.0.0.1")
 APP_PORT = _get_int("APP_PORT", 5000)
 APP_DEBUG = _get_bool("APP_DEBUG", False)
+
+
+def create_cached_http_session(cache_name, expire_after):
+    import requests
+    import requests_cache
+
+    cache_path = REQUEST_CACHE_DIR / cache_name
+    database_path = cache_path.with_suffix(".sqlite")
+    try:
+        REQUEST_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        if not os.access(REQUEST_CACHE_DIR, os.W_OK):
+            raise PermissionError(f"directory is not writable: {REQUEST_CACHE_DIR}")
+        if database_path.exists() and not os.access(database_path, os.W_OK):
+            raise PermissionError(f"database is not writable: {database_path}")
+        return requests_cache.CachedSession(
+            str(cache_path),
+            expire_after=expire_after,
+        )
+    except (OSError, sqlite3.Error) as error:
+        print(
+            f"Warning: HTTP cache {cache_path}.sqlite is unavailable: {error}. "
+            "Continuing without a persistent cache. Check the ownership of "
+            f"{REQUEST_CACHE_DIR}.",
+            flush=True,
+        )
+        return requests.Session()
 
 
 def sqlalchemy_database_url():
