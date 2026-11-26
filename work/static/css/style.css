@@ -98,6 +98,19 @@ body {
     color: #dddddd;
 }
 
+/* Link that looks like normal text and is only underlined on hover */
+.plain-link,
+.plain-link:visited {
+    color: inherit;
+    text-decoration: none;
+}
+
+.plain-link:hover,
+.plain-link:focus-visible {
+    color: inherit;
+    text-decoration: underline;
+}
+
 .main-content {
     max-width: 1200px;
     margin: 0 auto;
