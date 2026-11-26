@@ -1,0 +1,8 @@
+# The data endpoints are heavy database queries used by the charts; crawlers don't need them
+User-agent: *
+Disallow: /api
+Disallow: /search
+Disallow: /trend
+Disallow: /ohlc
+Disallow: /enrichedDF
+Disallow: /forecast

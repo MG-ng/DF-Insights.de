@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import subprocess
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -47,6 +48,24 @@ DB_PARAMS = {
 APP_HOST = os.getenv("APP_HOST", "127.0.0.1")
 APP_PORT = _get_int("APP_PORT", 5000)
 APP_DEBUG = _get_bool("APP_DEBUG", False)
+
+
+def _detect_app_version():
+    """Commit the app runs from, shown in the page footer. APP_VERSION in .env wins over git."""
+    configured = os.getenv("APP_VERSION", "").strip()
+    if configured:
+        return configured
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(PROJECT_ROOT), "log", "-1", "--format=%h %cs"],
+            capture_output=True, text=True, timeout=5, check=True,
+        )
+        return result.stdout.strip() or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
+APP_VERSION = _detect_app_version()  # e.g. "2c34313 2026-11-26" (short commit hash and commit date)
 
 
 def create_cached_http_session(cache_name, expire_after):

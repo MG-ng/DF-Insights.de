@@ -6,10 +6,10 @@ from decimal import Decimal
 from sys import float_repr_style
 
 import requests
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, send_from_directory
 from numpy.matlib import empty
 
-from config import APP_DEBUG, APP_HOST, APP_PORT
+from config import APP_DEBUG, APP_HOST, APP_PORT, APP_VERSION
 from Helper import REGION_LIST, FILTER, FilterTranslations, FLAG, Resolution, unix_time_duration, repi_power1avg2_ID
 # These imports crash if app.py is in a separate folder, not seeing psqlDatabase/
 from psqlDatabase.QueryComplex import get_smard_timeseries, get_timeseries, get_daily_price_ohlc
@@ -19,6 +19,11 @@ from psqlDatabase.dunkelflauteSearch import get_dunkelflaute_matches, get_dunkel
 # TODO: Change Server Configuration Path
 
 app = Flask(__name__)
+
+
+@app.context_processor
+def inject_app_version():
+	return {'app_version': APP_VERSION}
 
 @app.route('/')
 def index():
@@ -186,6 +191,16 @@ def enrichedDF():
 	return {'ordering': columns, 'series': rows}
 
 
+@app.route('/robots.txt')
+def robots_txt():
+	return send_from_directory( app.static_folder, 'robots.txt', mimetype = 'text/plain' )
+
+@app.route('/.well-known/security.txt')
+def security_txt():
+	"""Where to report security issues (RFC 9116). Renew the Expires date in the file at least once a year."""
+	return send_from_directory( app.static_folder, 'well-known/security.txt', mimetype = 'text/plain' )
+
+
 @app.route('/features')
 def features():
 	return render_template('features.html', title='Features')
@@ -202,52 +217,64 @@ def prediction():
 def about():
 	return render_template('about.html', title='About Us')
 
+def wind_speed_100m( w80, w120 ):
+	"""Log-law interpolation of the wind speed at 100 m from the 80 m and 120 m values (same formula as the SQL view):
+	(avg( wind_speed_80m ) * POWER( 100.0 / 80.0, LN( avg( wind_speed_120m ) / avg( wind_speed_80m ) )
+										/ LN( 120.0 / 80.0 ) ))::DECIMAL( 6, 3 ) as wind_100m_log
+	The log law needs both speeds > 0. In calm air (a speed of 0) it falls back to the linear mean,
+	and a missing value (None) stays missing."""
+	if w80 is None or w120 is None:
+		return None
+	if w80 <= 0 or w120 <= 0:
+		return (w80 + w120) / 2.0
+	return w80 * pow( 100.0/80.0, log( w120/w80 ) / log( 120.0/80 ) )
+
+
+def average( values ):
+	"""Mean of the values that are not None, None if there are none."""
+	values = [ value for value in values if value is not None ]
+	return sum( values ) / len( values ) if values else None
+
+
 @app.route('/forecast')
 def forecast():
-	response = requests.get("https://api.open-meteo.com/v1/forecast?latitude=54,54,54,52,52,52,50,50,50,48,48,48&longitude=7,10,13,7,10,13,7,10,13,7,10,13&hourly=wind_speed_120m,wind_speed_80m,direct_radiation,diffuse_radiation&models=icon_global&timeformat=unixtime&wind_speed_unit=ms")
-	if response.status_code != 200:
-		return "API Error"
 	try:
+		response = requests.get("https://api.open-meteo.com/v1/forecast?latitude=54,54,54,52,52,52,50,50,50,48,48,48&longitude=7,10,13,7,10,13,7,10,13,7,10,13&hourly=wind_speed_120m,wind_speed_80m,direct_radiation,diffuse_radiation&models=icon_global&timeformat=unixtime&wind_speed_unit=ms",
+								timeout = 10 )
+		response.raise_for_status()
 		data = response.json()
-	except Exception:
-		return "API Error"
-	wind_locations = [loc for loc in data if loc["latitude"] > 51]
-	wind_locations_amount = len(wind_locations)
-	solar_locations = [loc for loc in data if loc["latitude"] < 52]
-	solar_locations_amount = len(solar_locations)
+	except (requests.RequestException, ValueError) as error:
+		print( f"Forecast: Open-Meteo request failed: {error}" )
+		return "API Error", 502
 
-	for wind_location in wind_locations:
-		"""(avg( wind_speed_80m ) * POWER( 100.0 / 80.0, LN( avg( wind_speed_120m ) / avg( wind_speed_80m ) )
-										/ LN( 120.0 / 80.0 ) ))::DECIMAL( 6, 3 ) as wind_100m_log"""
-		w120 = wind_location["hourly"]["wind_speed_120m"]
-		w80 = wind_location["hourly"]["wind_speed_80m"]
-		wind_location["hourly"]["wind_speed_100m"] = [(w80 * pow( 100.0/80.0, log( w120/w80 ) / log( 120.0/80 ) ))
-													  for w80, w120 in zip(w80, w120) ]  # calculate new 100m height
+	try:
+		wind_locations = [loc for loc in data if loc["latitude"] > 51]
+		solar_locations = [loc for loc in data if loc["latitude"] < 52]
 
+		for wind_location in wind_locations:
+			w120 = wind_location["hourly"]["wind_speed_120m"]
+			w80 = wind_location["hourly"]["wind_speed_80m"]
+			wind_location["hourly"]["wind_speed_100m"] = [ wind_speed_100m( w80, w120 )
+														   for w80, w120 in zip(w80, w120) ]  # calculate new 100m height
 
-	repis = {}
-	for index, timestamp in enumerate(data[0]["hourly"]["time"]):
+		repis = {}
+		for index, timestamp in enumerate(data[0]["hourly"]["time"]):
+			wind_speed_100m_avg = average( location[ "hourly" ][ "wind_speed_100m" ][ index ] for location in wind_locations )
+			direct_radiation_avg = average( location[ "hourly" ][ "direct_radiation" ][ index ] for location in solar_locations )
+			diffuse_radiation_avg = average( location[ "hourly" ][ "diffuse_radiation" ][ index ] for location in solar_locations )
+			if None in (wind_speed_100m_avg, direct_radiation_avg, diffuse_radiation_avg):
+				continue  # no usable value at this hour
 
-		wind_speed_100m_sum = sum( [ wind_locations[ location ][ "hourly" ][ "wind_speed_100m" ][ index ]
-										  for location in range( wind_locations_amount ) ] )
-		wind_speed_100m_avg = wind_speed_100m_sum / wind_locations_amount * 1.0
-
-		direct_radiation_sum = sum( [ solar_locations[ location ][ "hourly" ][ "direct_radiation" ][ index ]
-										  for location in range( solar_locations_amount ) ] )
-		direct_radiation_avg = direct_radiation_sum / solar_locations_amount * 1.0
-
-		diffuse_radiation_sum = sum( [ solar_locations[ location ][ "hourly" ][ "diffuse_radiation" ][ index ]
-										  for location in range( solar_locations_amount ) ] )
-		diffuse_radiation_avg = diffuse_radiation_sum / solar_locations_amount * 1.0
-
-		"""round( (least( wind.wind_speed_100_avg, 11 ) ^ 3
-				+ (radiation.direct_radiation_avg) * 2
-				+ (radiation.diffuse_radiation_avg) * 2
-				)::Decimal( 8, 4 ), 2 ) AS repi_power1avg2"""
-
-		repis[timestamp] = round( min( wind_speed_100m_avg, 11.0 )**3
-								  + direct_radiation_avg * 2
-								  + diffuse_radiation_avg * 2, 2 )
+			"""round( (least( wind.wind_speed_100_avg, 11 ) ^ 3
+					+ (radiation.direct_radiation_avg) * 2
+					+ (radiation.diffuse_radiation_avg) * 2
+					)::Decimal( 8, 4 ), 2 ) AS repi_power1avg2"""
+			repis[timestamp] = round( min( wind_speed_100m_avg, 11.0 )**3
+									  + direct_radiation_avg * 2
+									  + diffuse_radiation_avg * 2, 2 )
+	except (KeyError, IndexError, TypeError) as error:
+		print( f"Forecast: unexpected Open-Meteo response: {error!r}" )
+		return "API Error", 502
 	return { "REPIs": repis }
 
 if __name__ == '__main__':

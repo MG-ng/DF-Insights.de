@@ -1,0 +1,5 @@
+website-carbon-badges 1.1.3 is licensed under GPL-3.0-or-later
+(see "license" in its package.json: https://www.npmjs.com/package/website-carbon-badges).
+The npm package ships no licence file; the full licence text is at
+https://www.gnu.org/licenses/gpl-3.0.txt
+The file in this folder is the unmodified b.min.js from that package.
