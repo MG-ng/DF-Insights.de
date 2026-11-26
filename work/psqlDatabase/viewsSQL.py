@@ -385,7 +385,7 @@ WITH radiation AS (
 
 -- code duplication to avoid a whole table (but recommended in the future) (f-string didn't work because of that)
 radiation_daily AS (
-    SELECT DATE_TRUNC('day', weather.date) AS date,
+    SELECT DATE_TRUNC('day', weather.date, 'Europe/Berlin') AS date,
            min(direct_radiation) AS direct_radiation_min,
            avg(direct_radiation)::DECIMAL(6, 3) AS direct_radiation_avg,
            max(direct_radiation) AS direct_radiation_max,
@@ -397,7 +397,7 @@ radiation_daily AS (
            max(temperature_2m) AS temp2m_max
     FROM {TABLE_NAME_OPEN_METEO} weather
     WHERE weather.lat < 52
-    GROUP BY DATE_TRUNC('day', weather.date)
+    GROUP BY DATE_TRUNC('day', weather.date, 'Europe/Berlin')
 ), wind_dir_count_daily AS ( -- count 12 locations by 8 weather direction
     SELECT COUNT(*) FILTER (WHERE 337.5 < wind_direction_100m AND wind_direction_100m <= 22.5) AS N,
            COUNT(*) FILTER (WHERE 22.5 < wind_direction_100m AND wind_direction_100m <= 67.5) AS NE,
@@ -407,9 +407,9 @@ radiation_daily AS (
            COUNT(*) FILTER (WHERE 202.5 < wind_direction_100m AND wind_direction_100m <= 247.5) AS SW,
            COUNT(*) FILTER (WHERE 247.5 < wind_direction_100m AND wind_direction_100m <= 292.5) AS W,
            COUNT(*) FILTER (WHERE 292.5 < wind_direction_100m AND wind_direction_100m <= 337.5) AS NW,
-           DATE_TRUNC('day', weather.date) AS date
+           DATE_TRUNC('day', weather.date, 'Europe/Berlin') AS date
         FROM {TABLE_NAME_OPEN_METEO} weather
-        GROUP BY DATE_TRUNC('day', weather.date)
+        GROUP BY DATE_TRUNC('day', weather.date, 'Europe/Berlin')
 ), wind_dir_daily AS (
     SELECT date, CASE
         WHEN GREATEST(n, ne, e, se, s, sw, w, nw) = n THEN 'north'
@@ -426,7 +426,7 @@ radiation_daily AS (
         )::DECIMAL(3, 2) AS wind_dir_uniformity
     FROM wind_dir_count_daily
 ), wind_daily AS (
-    SELECT DATE_TRUNC('day', weather.date) AS date,
+    SELECT DATE_TRUNC('day', weather.date, 'Europe/Berlin') AS date,
            min(wind_speed_10m) AS wind_speed_10_min,
            avg(wind_speed_10m)::DECIMAL(6, 3) AS wind_speed_10_avg,
            max(wind_speed_10m) AS wind_speed_10_max,
@@ -435,7 +435,7 @@ radiation_daily AS (
            max(wind_speed_100m) AS wind_speed_100_max
     FROM {TABLE_NAME_OPEN_METEO} weather
     WHERE weather.lat > 51
-    GROUP BY DATE_TRUNC('day', weather.date)
+    GROUP BY DATE_TRUNC('day', weather.date, 'Europe/Berlin')
 )
 
 SELECT *, 'hour' AS resolution, -- renewable energy production index

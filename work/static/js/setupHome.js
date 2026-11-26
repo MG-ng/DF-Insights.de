@@ -11,6 +11,9 @@ window.cma_replacement = cma_replacement
 
 console.log("Executing Setup Home……")
 
+// All timestamps from the API are UTC; show them in German local time (handles CET/CEST switches)
+Highcharts.setOptions({ time: { timezone: 'Europe/Berlin' } })
+
 
 Highcharts.getJSON('/api', function(data) {
     var grid_load = data['series'].map(triple => {
