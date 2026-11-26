@@ -1,6 +1,7 @@
 "use strict";
 
 import {toast} from "./script.js";
+import { TimeChart } from "./plotlyTimeChart.js";
 import {filters, cma_options, reloadData, resolutions, translations} from "./flask_variables.js";
 export { timeChart, selectorFilter, selectorRes, cma_selector, cma_replacement, dunkelflauteColor, Match, timeShares }
 
@@ -12,19 +13,40 @@ window.cma_replacement = cma_replacement
 console.log("Executing Setup Home……")
 
 
-Highcharts.getJSON('/api', function(data) {
-    var grid_load = data['series'].map(triple => {
-        return [triple[0], triple[2]]
-    })
-    // Calculating a virtual percentage/max_share line of (wind+solar) on total demand if resLoad + gridLoad are available
-    if( data['ordering'][3] === 'power_consumption_residual_load'
-        && data['ordering'][4] === 'power_consumption_total' ) {
-        console.log("Drawing computed percentage/max_share line of (wind+solar)")
-
-        timeShares = data['series'].map(triple => {
-            return [triple[0], 1- (triple[1] / triple[2])]
-        })
+timeChart = new TimeChart('container', {
+    // id: axis options; the order decides which axis is drawn first on its side
+    0: { title: 'Prices (€/MWh)', color: '#FF0000', side: 'left' },
+    1: { title: 'Electric Energy (MWh)', color: '#0000FF', side: 'right' },
+    2: { title: 'Percentage', color: '#00AA00', side: 'right', tickformat: '.0%', hoverformat: '.0%' },
+    'wind-speed_y-axis': { title: 'Wind Speed (m/s)', visible: false },
+    'solar-radiation_y-axis': { title: 'Solar Radiation (W/m²)', visible: false },
+    'repi_y-axis': { title: 'REPI', visible: false },
+}, {
+    initialRangeMs: 365 * 24 * 60 * 60 * 1000,  // like the former rangeSelector "1y" preselection
+    onRangeChange: (minMs, maxMs) => {
+        // Hourly data is only delivered for the visible window (max. 2 years), switch to daily data when zooming out
+        const chartDurationDays = (maxMs - minMs) / 1000 / 60 / 60 / 24  // ms->s->m->h->d
+        const resolution = selectorRes.getValue()
+        if ((resolution === 'quarterhour' || resolution === 'hour') && chartDurationDays > 365 * 2) {
+            selectorRes.setValue('day')  // triggers the reload via onChange
+        }
     }
+})
+
+fetch('/api')
+    .then(response => response.json())
+    .then(data => {
+        var grid_load = data['series'].map(triple => [triple[0], triple[2]])
+        var residual_load = data['series'].map(triple => [triple[0], triple[1]])
+        // Calculating a virtual percentage/max_share line of (wind+solar) on total demand if resLoad + gridLoad are available
+        if( data['ordering'][3] === 'power_consumption_residual_load'
+            && data['ordering'][4] === 'power_consumption_total' ) {
+            console.log("Drawing computed percentage/max_share line of (wind+solar)")
+
+            timeShares = data['series'].map(triple => {
+                return [triple[0], 1- (triple[1] / triple[2])]
+            })
+        }
 
     // TODO: "Die Erzeugungsdaten beziehen sich auf die Erzeugung innerhalb Deutschlands und wurden
     //  von der Bundesnetzagentur über ihr Portal SMARD bereitgestellt. Nur der importierte Strom stammt
@@ -42,161 +64,14 @@ Highcharts.getJSON('/api', function(data) {
     // und am Jahresende bilden. Dadurch liegt prinzipiell die Leistung in der ersten Jahreshälfte etwas zu hoch,
     // in der zweiten etwas zu niedrig.
 
-    timeChart = Highcharts.stockChart('container', {
-        yAxis: [{ // Primary y-axis (index 0)
-            title: {text: 'Prices (€/MWh)'},
-            labels: {
-                style: {color: '#FF0000'}
-            },
-            opposite: false // Places it on the left side
-        }, {// Secondary y-axis (index 1)
-            title: {text: 'Electric Energy (MWh)'},
-            labels: {style: {color: '#0000FF'}},
-            visible: true,
-            opposite: true // Places it on the right side
-        }, {// Third y-axis (index 2)
-            title: {text: 'Percentage'},  // Dimensionless 0-100% for residual generation max_share
-            labels: {style: {color: '#00FF00'}},
-            opposite: true // Places it on the right side
-        }, {// Fourth y-axis (index 3)
-            id: 'wind-speed_y-axis',
-            title: {text: ''},  // Dimensionless 0-100% for residual generation max_share
-            visible: false
-        }, {// Fifth y-axis (index 4)
-            id: 'solar-radiation_y-axis',
-            title: {text: ''},  // Dimensionless 0-100% for residual generation max_share
-            visible: false
-        }, {// Sixth y-axis (index 5)
-            id: 'repi_y-axis',
-            title: {text: ''},  // Dimensionless 0-100% for residual generation max_share
-            visible: false
-        }],
-        tooltip: {
-            shared: false,
-            useHTML: true,
-            xDateFormat: '%a, %b%e, %H:%M',  // "Mon, Jan3, 14:30"
-            // TODO: make this work
-            /* headerFormat: function() {
-                    function addOrdinalSuffix(day) {
-                        if (day >= 11 && day <= 13) { // Handle special cases: 11th, 12th, 13th
-                            return day + 'th'
-                        }
-                        switch (day % 10) { // Handle normal cases based on last digit
-                            case 1:  return day + 'st'  // 1st, 21st, 31st
-                            case 2:  return day + 'nd'  // 2nd, 22nd
-                            case 3:  return day + 'rd'  // 3rd, 23rd
-                            default: return day + 'th'  // 4th, 5th, 6th, 7th, 8th, 9th, 10th, 20th, etc.
-                        }
-                    }
-                    const dayName = Highcharts.dateFormat('%a', this.x)
-                    const month = Highcharts.dateFormat('%b', this.x)
-                    const ordinalDay = addOrdinalSuffix(Highcharts.dateFormat('%e', this.x))
-                    const time = Highcharts.dateFormat('%H:%M', this.x)
-                    return `<span style="font-size: 10px">${this.key}, ${month} ${ordinalDay}, ${time}</span><br>`
-            }*/
-        },
-        xAxis: {
-            title: {text: 'Date'},
-            type: 'datetime',
-            crosshair: {
-                width: 1,
-                color: '#cccccc',
-                dashStyle: 'shortdot'
-            },
-            events: {
-                afterSetExtremes: function(e) {
-                    var chartDurationDays = (this.max - this.min)/1000/60/60/24  // ms->s->m->h->d
-                    if( !selectorRes.getValue() ) {
-                        // default case in the beginning, no resolution selected
-                    } else if( selectorRes.getValue() === selectorRes.options.quarterhour.value
-                                || selectorRes.getValue() === selectorRes.options.hour.value ) {
-                        if( chartDurationDays > 365*2 ) {
-                            selectorRes.setValue(selectorRes.options.day.value)
-                        }
-                        reloadData()
-                    }
-                }
-            }
-        },
-        rangeSelector: {
-            selected: 4  // selects the zoom level index in the top left of the chart element
-        },
-        series: [{
-            name: "Share_of_Renewable_Energies_Computed",
-            data: timeShares,
-            tooltip: { pointFormatter: function (fStr) {
-                    // fStr = <span style="color:{point.color}">●</span> {series.name}: <b>{point.y}</b><br/>
-                    var retStr = fStr.replace('{point.color}', this["color"])
-                    retStr = retStr.replace('{series.name}', this.series.name)
-                    var percent = (this.y * 100).toFixed(0) + " %"
-                    retStr = retStr.replace('{point.y}', percent)
-                    return retStr
-                },
-            },
-            yAxis: 2,
-            color: "#00FF00",  // green
-            // visible: true
-        },{
-            name: 'Residual Load',
-            data: data['series'],
-            tooltip: {
-                valueDecimals: 2
-            }
-        }, {
-            name: 'Total Grid Load',
-            data: grid_load,
-            tooltip: {
-                valueDecimals: 2
-            }
-        }],
-        plotOptions: {
-        }, legend: {
-            enabled: true
-        },
-        function() {
-            const timeChart = this;
-            Highcharts.addEvent(
-                timeChart.container,
-                document.onmousewheel === undefined ? 'DOMMouseScroll' : 'mousewheel',
-                function (event) {
-                    const axis = timeChart.xAxis[0],
-                        extremes = axis.getExtremes(),
-                        min = extremes.min,
-                        max = extremes.max,
-                        range = max - min,
-                        precision = range / 150,
-                        e = timeChart.pointer.normalize(event)
-
-                    let delta = e.deltaY, prevent = true
-
-                    if (timeChart.isInsidePlot(e.chartX - chart.plotLeft, e.chartY - chart.plotTop)) {
-                        const proportion = (e.chartX - timeChart.plotLeft) / timeChart.plotWidth
-                        axis.setExtremes(min + proportion * delta * precision, max)
-
-                        // Crosshair handling logic
-                        timeChart.yAxis.forEach(axis => {
-                            if (!(axis.pos < e.chartY && axis.pos + axis.len > e.chartY) && timeChart.hoverPoint && axis.cross) {
-                                delete axis.cross.e
-                            }
-                        })
-
-                        if (prevent) {
-                            if (e) {
-                                if (e.preventDefault) {
-                                    e.preventDefault()
-                                }
-                                if (e.stopPropagation) {
-                                    e.stopPropagation()
-                                }
-                                e.cancelBubble = true
-                            }
-                        }
-                    }
-                }
-            )
-        }
+        if (timeShares) timeChart.addSeries({ name: "Share_of_Renewable_Energies_Computed", data: timeShares, yAxis: 2, color: "#00CC00" })
+        timeChart.addSeries({ name: 'Residual Load', data: residual_load, yAxis: 1, color: '#2CAFFE' })
+        timeChart.addSeries({ name: 'Total Grid Load', data: grid_load, yAxis: 1, color: '#544FC5' })
     })
-})
+    .catch(error => {
+        console.error(error)
+        toast("Loading Error! Contact the site maintainer.")
+    })
 
 
 /**
@@ -319,25 +194,17 @@ function cma_replacement () {
     }
     if(cmaFilters.length === 0) { toast(" No timeseries to smooth selected! "); return; }
 
-    for (var seriesIndex in timeChart.series) {
-        // Example: var results = array.filter(function(x) { return x.ID == 3 });
-        var name = timeChart.series[seriesIndex]["name"]
+    for (const series of timeChart.series.slice()) {
+        var name = series.name
         if (cmaFilters.includes(name)) {
             console.log("Found match: " + name)
         } else {
             if( cma_selector.options[name] ) {  // computed graph lines aren't in the selector
-                timeChart.series[seriesIndex].setData(cma_selector.options[name].data)
+                timeChart.setSeriesData(name, cma_selector.options[name].data)
             }
             continue
         }
-        // Having trouble with this as this doesn't return the date (NaN and sometimes not all list entries
-        // timeChart.series[seriesIndex].options.data  // list of objects with x and y attributes
-        console.log(cma_selector.options)
-        var timedValues = cma_selector.options[name].data  // list of objects with x and y attributes
-        var preservedValues = timedValues.slice()
-
-        console.log("timedValues")
-        console.log( timedValues )
+        var timedValues = cma_selector.options[name].data.slice()  // list of [timestamp, value]
         console.log("Period: " + period)
 
         // "To memorize this, remember that (a, b) => a - b sorts numbers in ascending order"
@@ -349,22 +216,14 @@ function cma_replacement () {
         var newTimedValue = timedValues.shift()
 
         while( timedValues && timedValues.length && newTimedValue ) {
-            newShorterTime.push([ Math.round( average( MOVINGWINDOW.map( timedValue => {
-                // console.log(timedValue)
-                return timedValue[0]
-            } ) ) ), average( MOVINGWINDOW.map( timedValue => timedValue[1] ) ) ] )
-            // console.log("newShorterTime")
-            // console.log(newShorterTime)
-            // console.log("timedValues")
-            // console.log(timedValues)
+            newShorterTime.push([ Math.round( average( MOVINGWINDOW.map( timedValue => timedValue[0] ) ) ),
+                average( MOVINGWINDOW.map( timedValue => timedValue[1] ) ) ] )
             MOVINGWINDOW.push( newTimedValue )
             do{ newTimedValue = timedValues.shift() }
-            while( !newTimedValue && timedValues )
+            while( !newTimedValue && timedValues.length )
             MOVINGWINDOW.shift()
-            // console.log(MOVINGWINDOW)
         }
-        timeChart.series[seriesIndex].setData( newShorterTime )
-        cma_selector.options[name].data = preservedValues
+        timeChart.setSeriesData( name, newShorterTime )
     }
 }
 
@@ -387,6 +246,7 @@ const cma_selector = new TomSelect('#select-cma', {
 });
 
 
+
 class Match {
     constructor(begin, end, matchedShares) {
         this.begin = begin
@@ -395,7 +255,7 @@ class Match {
         this.clientSearch = true
     }
     plotBand() {
-        return {from: this.begin, to: this.end, color: dunkelflauteColor, id: "same"}  // for unified removal
+        return {from: this.begin, to: this.end, color: dunkelflauteColor}
     }
     seriousness() {
         console.log( "Calculation of matchedShares" )

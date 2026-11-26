@@ -3,6 +3,7 @@
 console.log("Executing Search Dunkelflaute…")
 
 import { timeChart, dunkelflauteColor, Match, timeShares } from "./setupHome.js"
+import { priceCandles } from "./priceCandles.js"
 import {loadingToast, randomHSL, toast, unix_time_duration} from "./script.js"
 import {closeLoadingToast, dataResolution, toasts} from "./flask_variables.js"
 window.search_dunkelflaute = search_dunkelflaute  // needed for the button onclick
@@ -14,7 +15,8 @@ function search_dunkelflaute() {
     var input = getDunkelflauteInput()
     if (!input) { return }
 
-    timeChart.xAxis.forEach( xAxis => xAxis.removePlotBand('same') )
+    timeChart.removeBands()
+    priceCandles.removeBands()
 
     // Change the Search Button to Loading...
     var btn = document.getElementById('btn_search_dunkelflaute')
@@ -35,9 +37,9 @@ function search_dunkelflaute() {
             for (var time_tuple of data["series"]) {
                 var match = new Match(time_tuple[0], time_tuple[1], null)
 
-                for (const xAxis of timeChart.xAxis) {  // There are 2 xAxis: one for the view, one for the view finder below
-                    xAxis.addPlotBand(match.plotBand())
-                }
+                const band = match.plotBand()
+                timeChart.addBand(band.from, band.to, band.color)
+                priceCandles.addBand(band.from, band.to, band.color)
             }
 
             toast("Found " + data["series"].length + " periods matching your criteria.")
@@ -75,15 +77,11 @@ function add_dunkelflaute_timeseries() {
             toast("Loading Error! Contact the site maintainer."); return;
         }
 
-        if( !timeChart.get( 'occurrences' ) ) {
-            timeChart.addAxis({
-                id: 'occurrences',
-                title: {
-                    text: 'Dunkelflaute Events in Last Rolling Year'
-                },
-                lineWidth: 1,
-                lineColor: "#D3A266",
-                opposite: true
+        if( !timeChart.hasAxis( 'occurrences' ) ) {
+            timeChart.addAxis('occurrences', {
+                title: 'Dunkelflaute Events in Last Rolling Year',
+                color: "#C3003E",
+                side: 'right'
             })
         }
 
@@ -94,15 +92,11 @@ function add_dunkelflaute_timeseries() {
             color: "#C3003E"
         })
 
-        if( !timeChart.get( 'duration' ) ) {  // undefined when not existent
-            timeChart.addAxis({
-                id: 'duration',
-                title: {
-                    text: 'Total Duration of Dunkelflaute in Last Rolling Year'
-                },
-                lineWidth: 1,
-                lineColor: "#D4A5AF",
-                opposite: false
+        if( !timeChart.hasAxis( 'duration' ) ) {
+            timeChart.addAxis('duration', {
+                title: 'Total Duration of Dunkelflaute in Last Rolling Year',
+                color: "#C35500",
+                side: 'left'
             })
         }
 

@@ -3,7 +3,7 @@ import time
 import psycopg2
 from psycopg2 import sql
 from config import DB_PARAMS
-from Helper import (TABLE_NAME_SMARD, FILTER, FilterTranslations, OTHER_THAN_SMARD_FILTER_IDs,
+from Helper import (TABLE_NAME_SMARD, FLAG, FILTER, FilterTranslations, OTHER_THAN_SMARD_FILTER_IDs,
 					VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_PRICE_CHANGE, VIEW_NAME_HISTORICAL_WEATHER_AGG)
 
 
@@ -159,3 +159,47 @@ def merge(smardResult, viewResult):
         rows.append( key + value )
 
     return rows
+
+
+def get_daily_price_ohlc( region, filter_name, start_ms, end_ms ):
+    """
+    Aggregates the hourly day-ahead prices of one market price column into one candle per day.
+    Days are cut at midnight in Europe/Berlin, the returned day timestamp is the UTC instant of that midnight.
+    open = price of the first hour of the day, close = price of the last hour, high/low = extremes of the day.
+    """
+    if filter_name not in set( FilterTranslations.values() ) or not filter_name.startswith( "Market_Price_" ):
+        return [], []
+    conn, cursor, rows, column_names = [None] * 4
+    try:
+        conn = psycopg2.connect( **DB_PARAMS )
+        cursor = conn.cursor()
+
+        query = sql.SQL("""
+            SELECT (extract( EPOCH FROM date_trunc( 'day', to_timestamp( unix_timestamp_ms / 1000.0 ),
+                                                    'Europe/Berlin' ) ) * 1000)::BIGINT AS unix_timestamp_ms,
+                   (array_agg( {column} ORDER BY unix_timestamp_ms ASC ))[1]  AS open,
+                   max( {column} )                                            AS high,
+                   min( {column} )                                            AS low,
+                   (array_agg( {column} ORDER BY unix_timestamp_ms DESC ))[1] AS close
+                FROM {table_name}
+                WHERE region = %s
+                    AND resolution = 'hour'
+                    AND {column} IS NOT NULL
+                    AND {column} <> %s
+                    AND unix_timestamp_ms >= %s
+                    AND unix_timestamp_ms <= %s
+                GROUP BY 1
+                ORDER BY 1; """
+            ).format(
+            column = sql.Identifier( filter_name.lower() ),
+            table_name = sql.Identifier( TABLE_NAME_SMARD )
+        )
+        cursor.execute( query, (region, FLAG, start_ms, end_ms) )
+        rows = cursor.fetchall()
+        column_names = [ desc[ 0 ] for desc in cursor.description ]
+    except psycopg2.Error as e:
+        print( f"Database error: {e}" )
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+    return rows, column_names

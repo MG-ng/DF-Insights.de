@@ -22,8 +22,6 @@ var closeLoadingToast = function ( toast ) {
 
 var reloadData = function() {
     return function() {
-        console.log( "Series:" )
-        console.log( timeChart.series )
         // console.log( selector.getValue() )
         // console.log( selector.items )  // The same as above
         // console.log( selector.options ) WANTED
@@ -38,8 +36,7 @@ var reloadData = function() {
         if (selectedFilterList.length === 0) {
             toast("No Time Series Selected!"); return
         }
-        var previousMin = (timeChart.xAxis[0].min).toFixed(0) // Upper x Axis (Result of the viewfinder)
-        var previousMax = (timeChart.xAxis[0].max).toFixed(0)
+        var [previousMin, previousMax] = timeChart.getRange().map(ms => ms.toFixed(0))  // visible window in UTC ms
         var timeFilter = "&startTime=" + previousMin + "&endTime=" + previousMax
         var cut4Speed = (['quarterhour', 'hour'].includes( selectorRes.items[0] )) ? timeFilter : ""
         toasts.push( loadingToast() )
@@ -61,9 +58,7 @@ var reloadData = function() {
                 var ordering = data['ordering']
                 var dbData = data['series']
                 // Clear all existing series first
-                while(timeChart.series.length >= 1) {
-                    timeChart.series[0].remove()
-                }
+                timeChart.clearSeries()
                 // console.log(`DATA:`)
                 // console.log(data)
                 if (dbData[0] === undefined) {
@@ -99,7 +94,7 @@ var reloadData = function() {
 
                     // cma_selector.refreshOptions();  // Just distracts with the focus on the expanded dropdown
                 }
-                timeChart.setTitle({text: "1000k MWh = 1 TWh"});  // TODO ?
+                timeChart.setTitle("1000k MWh = 1 TWh");  // TODO ?
             });
     };
 };

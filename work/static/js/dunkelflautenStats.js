@@ -64,93 +64,64 @@ populateSelect('yAxisSelect', 'extent')
 populateSelect('sizeSelect', 'dunkelflauten_cost')
 populateSelect('colorSelect', 'price_increase_during_df_weighted')
 
-let bubbleChart;
+let bubbleChart;  // the Plotly chart div once it is drawn
+const tableCache = new Map()  // tableName -> rows, so changing an axis doesn't download the table again
 
-function showDF( data ) {
-    alert(data)
-}
-
-// Initialize the chart
-function createChart() {
+// Draw (or redraw) the bubble chart with the current selections
+async function createChart() {
     const selectedTable = document.getElementById('tableSelect').value
     const xColumn = document.getElementById('xAxisSelect').value
     const yColumn = document.getElementById('yAxisSelect').value
     const sizeColumn = document.getElementById('sizeSelect').value
     const colorColumn = document.getElementById('colorSelect').value
 
-    updateChartWithRealData()
+    const rows = await fetchTableData(selectedTable)
+    const value = (row, column) => parseFloat(row[column]) || 0
+    const sizes = rows.map(row => value(row, sizeColumn))
+    const colors = rows.map(row => value(row, colorColumn))
 
-    if (bubbleChart) {
-        bubbleChart.destroy()
+    // Bubble diameter between 10 and 50 px, linear between the smallest and the largest value (like Highcharts did)
+    const zMin = Math.min(...sizes), zMax = Math.max(...sizes)
+    const diameters = sizes.map(z => zMax > zMin ? 10 + (z - zMin) / (zMax - zMin) * 40 : 30)
+
+    const trace = {
+        type: 'scatter',
+        mode: 'markers',
+        name: 'Dunkelflauten in Germany',
+        x: rows.map(row => value(row, xColumn)),
+        y: rows.map(row => value(row, yColumn)),
+        customdata: rows.map((row, i) => [smartTimestamp(row.start_time, 'date'), sizes[i], row['duration_days'], colors[i]]),
+        marker: {
+            size: diameters,
+            sizemode: 'diameter',
+            color: colors,
+            colorscale: turboStops,
+            opacity: 0.75,
+            line: { width: 1, color: 'rgba(40, 40, 40, 0.6)' },
+            colorbar: { title: { text: formatColumnName(colorColumn), side: 'right' }, thickness: 14 }
+        },
+        hovertemplate:
+            'Start: <b>%{customdata[0]}</b><br>' +
+            `${formatColumnName(xColumn)}: <b>%{x}</b><br>` +
+            `${formatColumnName(yColumn)}: <b>%{y}</b><br>` +
+            `${formatColumnName(sizeColumn)}: <b>%{customdata[1]}</b><br>` +
+            `${formatColumnName(colorColumn)}: <b>%{customdata[3]}</b><br>` +
+            'Duration in days: <b>%{customdata[2]}</b>' +
+            '<extra>Dunkelflauten in Germany</extra>'
     }
-
-    bubbleChart = Highcharts.chart('bubble-chart-container', {
-        chart: {
-            type: 'bubble',
-            backgroundColor: 'transparent'
-        },
-        title: {
-            text: `${selectedTable.replace('_', ' ').toUpperCase()} Analysis`,
-            style: {
-                fontSize: '18px',
-                fontWeight: 'bold'
-            }
-        },
-        xAxis: {
-            title: {
-                text: formatColumnName(xColumn)
-            },
-            gridLineColor: '#e6e6e6'
-        },
-        yAxis: {
-            title: {
-                text: formatColumnName(yColumn)
-            },
-            gridLineColor: '#e6e6e6',
-        },
-        plotOptions: {
-            bubble: {
-                minSize: 10,
-                maxSize: 50,
-                tooltip: {
-                    useHTML: true,
-                    hideDelay: 1500,
-                    style: { pointerEvents: 'auto' },
-                    headerFormat: '<b>{series.name}</b><br>',
-                    pointFormat: `Start: <b>{point.name}</b><br>
-                        ${formatColumnName(xColumn)}:    &#9;<b>{point.x}</b><br>
-                        ${formatColumnName(yColumn)}:    &#9;<b>{point.y}</b><br>
-                        ${formatColumnName(sizeColumn)}: &#9;<b>{point.z}</b><br>
-                        Duration in days: <b>{point.durationDays}</b> &nbsp;&nbsp;&nbsp; 
-                        <!-- TODO: Make this work a href="#" onclick="(function(){
-                            alert('Hello World');
-                        })()">See More</a--><br>`
-                },
-                animation: {
-                    duration: 1000,
-                    easing: 'easeOutBounce'
-                }
-            }
-        },
-        series: [{
-            name: 'Dunkelflauten in Germany',
-            // keys: ['x', 'y', 'z', 'colorValue'],
-            colorByPoint: true,  // this option determines whether the chart should receive one color per series or one color per point
-            // colors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
-        }],
-        responsive: {
-            rules: [{
-                condition: {
-                    maxWidth: 500
-                },
-                chartOptions: {
-                    legend: {
-                        enabled: false
-                    }
-                }
-            }]
-        }
-    })
+    const layout = {
+        title: { text: `${selectedTable.replace('_', ' ').toUpperCase()} Analysis`, font: { size: 18 } },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        hovermode: 'closest',
+        showlegend: false,
+        margin: { l: 70, r: 20, t: 60, b: 60 },
+        xaxis: { title: { text: formatColumnName(xColumn) }, gridcolor: '#e6e6e6', zeroline: false },
+        yaxis: { title: { text: formatColumnName(yColumn) }, gridcolor: '#e6e6e6', zeroline: false },
+        transition: { duration: 500, easing: 'cubic-in-out' }
+    }
+    bubbleChart = document.getElementById('bubble-chart-container')
+    Plotly.react(bubbleChart, [trace], layout, { responsive: true, displaylogo: false })
 }
 
 // Format column names for display
@@ -173,70 +144,35 @@ document.getElementById('minDurationSelect').addEventListener('change', createCh
 createChart();
 
 
-
-
-
-
-
-// Function to fetch data from PostgreSQL backend
-async function fetchTableData(tableName, columns = ['*']) {
+// Function to fetch data from PostgreSQL backend, filtered by the selected min duration
+async function fetchTableData(tableName) {
     const minDuration = document.getElementById('minDurationSelect').value
     try {
-        const response = await fetch( '/enrichedDF?tableName=' + tableName )
-        const data = await response.json()
-        console.log(data)
-        var dunkelflauten = [], rows = [], cols = []
-        if(data) { cols = data["ordering"]; rows = data["series"] }
-        console.log(cols)
-        console.log(rows)
-        for( var row of rows ) {
-            var dunkelflaute = {}
-            for( var index in cols ) {
-                // Downloaded array to convert it back to a map
-                dunkelflaute[cols[index]] = row[index]
-                if( cols[index] === "dp_in_before_after_range" ) {
-                    dunkelflaute[cols[index]] = (row[index] ? 1 : 0)
+        if (!tableCache.has(tableName)) {
+            const response = await fetch( '/enrichedDF?tableName=' + tableName )
+            const data = await response.json()
+            var dunkelflauten = [], rows = [], cols = []
+            if(data) { cols = data["ordering"]; rows = data["series"] }
+            for( var row of rows ) {
+                var dunkelflaute = {}
+                for( var index in cols ) {
+                    // Downloaded array to convert it back to a map
+                    dunkelflaute[cols[index]] = row[index]
+                    if( cols[index] === "dp_in_before_after_range" ) {
+                        dunkelflaute[cols[index]] = (row[index] ? 1 : 0)
+                    }
                 }
+                dunkelflauten.push(dunkelflaute)
             }
-            dunkelflauten.push(dunkelflaute)
+            tableCache.set(tableName, dunkelflauten)
         }
-        console.log(dunkelflauten)
-        return dunkelflauten.filter(dunkelflaute => dunkelflaute["duration_days"] >= minDuration)
+        return tableCache.get(tableName).filter(dunkelflaute => dunkelflaute["duration_days"] >= minDuration)
     } catch (error) {
         console.error('Error fetching data:', error)
+        toast("Loading Error of the Dunkelflauten table! Contact the site maintainer.")
         return []
     }
 }
-
-
-// Function to update chart with real data
-async function updateChartWithRealData() {
-    const selectedTable = document.getElementById('tableSelect').value
-    const xColumn = document.getElementById('xAxisSelect').value
-    const yColumn = document.getElementById('yAxisSelect').value
-    const sizeColumn = document.getElementById('sizeSelect').value
-    const colorColumn = document.getElementById('colorSelect').value
-
-    const requiredColumns = [xColumn, yColumn, sizeColumn, 'name', 'duration_days']
-    const data = await fetchTableData(selectedTable, requiredColumns)
-
-    var chartData = data.map(row => {
-        /*
-        if( "dp_in_before_after_range" in [xColumn, yColumn, sizeColumn, colorColumn] ) {
-            var index = [xColumn, yColumn, sizeColumn, colorColumn].findIndex("dp_in_before_after_range")
-        }*/
-        return ({
-            name: smartTimestamp(row.start_time, 'date'),
-            x: parseFloat(row[xColumn]) || 0,
-            y: parseFloat(row[yColumn]) || 0,
-            z: parseFloat(row[sizeColumn]) || 0,
-            // colorValue: 0 || 0,  // Doesn't work :/
-            durationDays: row['duration_days']
-        })
-    })
-    bubbleChart.series[0].setData(chartData)
-}
-updateChartWithRealData()
 
 
 
