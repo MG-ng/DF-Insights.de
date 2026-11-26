@@ -22,28 +22,6 @@ from psqlDatabase.dunkelflauteSearch import get_dunkelflaute_matches, get_dunkel
 
 app = Flask(__name__)
 
-# The database keeps epoch milliseconds, the API speaks epoch seconds (UTC) in both directions.
-MS_PER_S = 1000
-DEFAULT_START_S = 1_000_000_000  # 9. September 2001
-MAX_END_S = 2_000_000_000  # 18. May 2033
-
-
-def ms_to_s( ms ):
-	return None if ms is None else int( ms ) // MS_PER_S
-
-
-def requested_time_range_ms():
-	"""Reads startTime/endTime (epoch seconds) and returns them in ms for the database, or None if invalid."""
-	start_s = request.args.get( 'startTime', DEFAULT_START_S, type = int )
-	end_s = request.args.get( 'endTime', MAX_END_S, type = int )
-	if start_s < 0 or end_s <= 0 or start_s > end_s or end_s > MAX_END_S:
-		return None
-	return start_s * MS_PER_S, end_s * MS_PER_S
-
-
-def seconds_ordering( columns ):
-	return [ 'unix_timestamp_s' if column == 'unix_timestamp_ms' else column for column in columns ]
-
 @app.route('/')
 def index():
 	return render_template('index.html',
@@ -68,10 +46,10 @@ def api():
 	region = request.args.get( 'region', "DE", type = str )
 	if resolution not in Resolution.values() or region not in REGION_LIST:
 		return "Data not available2", 404
-	time_range_ms = requested_time_range_ms()
-	if time_range_ms is None:
+	start_ms = request.args.get( 'startTime', 1000000000000, type = int )  # 9. September 2001
+	end_ms = request.args.get( 'endTime', 2000000000000, type = int )  # 18. May 2033
+	if start_ms < 0 or end_ms <= 0 or start_ms > end_ms or end_ms > 2000000000000:
 		return "Data not available3", 404
-	start_ms, end_ms = time_range_ms
 
 	chartDurationDays = (end_ms - start_ms)/1000/60/60/24  # ms->s->m->h->d
 	if resolution in [Resolution.HOUR.value, Resolution.QUARTERHOUR.value] and chartDurationDays > 365*2:
@@ -85,7 +63,7 @@ def api():
 	# print( f"{rows =}" )
 	for row in rows:
 		newRow = []
-		newRow.append( ms_to_s( row[0] ) )  # timestamp
+		newRow.append( row[0] )  # timestamp
 
 		# High Chart needs more adjustments for correct string placements
 		# newRow.append( row[1] )  # region
@@ -111,7 +89,7 @@ def api():
 	# Highcharts needs data to be sorted for performance reasons
 	newRows.sort( key = lambda row: row[ 0 ] )
 
-	return {'ordering': seconds_ordering( columns ), 'default': {'resolution': resolution, 'region': region}, 'series': newRows}
+	return {'ordering': columns, 'default': {'resolution': resolution, 'region': region}, 'series': newRows}
 
 
 
@@ -122,10 +100,10 @@ def search():
 	if resolution not in Resolution.values() or region not in REGION_LIST:
 		return "Data not available", 404
 
-	time_range_ms = requested_time_range_ms()
-	if time_range_ms is None:
+	start_ms = request.args.get( 'startTime', 1000000000000, type = int )  # 9. September 2001
+	end_ms = request.args.get( 'endTime', 2000000000000, type = int )  # 18. May 2033
+	if start_ms < 0 or end_ms <= 0 or start_ms > end_ms or end_ms > 2000000000000:
 		return "Data not available", 404
-	start_ms, end_ms = time_range_ms
 
 	threshold = request.args.get( 'maxShare', 0.3, type = float )  # 30%
 	unix_duration = request.args.get( 'min_duration_ms', unix_time_duration(1, Resolution.DAY), type = int )  # 1 day
@@ -142,10 +120,10 @@ def search():
 	newRows = []
 	for row in rows:
 		newRow = []
-		newRow.append( ms_to_s( row[0] ) )  # start_time
+		newRow.append( row[0] )  # start_time
 		# newRow.append( row[1] )  # region
 		# newRow.append( row[2] )  # resolution
-		newRow.append( ms_to_s( row[3] ) )  # end_time
+		newRow.append( row[3] )  # end_time
 		newRows.append( newRow )
 
 	return { 'ordering': columns, 'default': {'resolution': resolution, 'region': region}, 'series': newRows }
@@ -158,10 +136,10 @@ def trend():
 	if resolution not in Resolution.values() or region not in REGION_LIST:
 		return "Data not available", 404
 
-	time_range_ms = requested_time_range_ms()
-	if time_range_ms is None:
+	start_ms = request.args.get( 'startTime', 1000000000000, type = int )  # 9. September 2001
+	end_ms = request.args.get( 'endTime', 2000000000000, type = int )  # 18. May 2033
+	if start_ms < 0 or end_ms <= 0 or start_ms > end_ms or end_ms > 2000000000000:
 		return "Data not available", 404
-	start_ms, end_ms = time_range_ms
 
 	threshold = request.args.get( 'maxShare', 0.3, type = float )  # 30%
 	unix_duration = request.args.get( 'min_duration_ms', unix_time_duration(1, Resolution.DAY), type = int )  # 1 day
@@ -173,9 +151,8 @@ def trend():
 	rows, columns = get_dunkelflaute_timeseries( region, resolution, threshold, unix_duration, start_ms, end_ms )
 	if rows is None:
 		return { 'ordering': [], 'default': {'resolution': None, 'region': None}, 'series': [] }
-	# Already sorted using SQL
-	rows = [ [ ms_to_s( row[0] ), *row[1:] ] for row in rows ]
-	return {'ordering': seconds_ordering( columns ), 'default': {'resolution': resolution, 'region': region}, 'series': rows}
+	# newRows.sort( key = lambda row: row[ 0 ] )  # Already sorted using SQL
+	return {'ordering': columns, 'default': {'resolution': resolution, 'region': region}, 'series': rows}
 
 
 @app.route('/enrichedDF')
@@ -185,12 +162,7 @@ def enrichedDF():
 						 [10, 15, 20, 25, 30, 35, 40, 45, 50, 55]]:
 		return "Data not available", 404
 	rows, columns = getEnrichedDunkelflauten( tableName )
-	if rows is None:
-		return {'ordering': [], 'series': []}
 
-	ms_columns = { index for index, column in enumerate( columns ) if column in ('start_time', 'end_time', 'duration_ms') }
-	rows = [ [ ms_to_s( value ) if index in ms_columns else value for index, value in enumerate( row ) ] for row in rows ]
-	columns = [ 'duration_s' if column == 'duration_ms' else column for column in columns ]
 	return {'ordering': columns, 'series': rows}
 
 

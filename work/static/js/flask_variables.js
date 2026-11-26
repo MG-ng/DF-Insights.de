@@ -2,7 +2,7 @@
 
 console.log("Executing Flask Variables……")
 
-import { randomHSL, toast, loadingToast, apiToChartTime, chartToApiTime } from "./script.js"
+import { randomHSL, toast, loadingToast } from "./script.js"
 import { timeChart, selectorFilter, selectorRes, cma_selector } from "./setupHome.js"
 export { filters, translations, cma_options, reloadData, dataResolution, resolutions, closeLoadingToast, toasts }
 
@@ -38,8 +38,8 @@ var reloadData = function() {
         if (selectedFilterList.length === 0) {
             toast("No Time Series Selected!"); return
         }
-        var previousMin = chartToApiTime(timeChart.xAxis[0].min) // Upper x Axis (Result of the viewfinder)
-        var previousMax = chartToApiTime(timeChart.xAxis[0].max)
+        var previousMin = (timeChart.xAxis[0].min).toFixed(0) // Upper x Axis (Result of the viewfinder)
+        var previousMax = (timeChart.xAxis[0].max).toFixed(0)
         var timeFilter = "&startTime=" + previousMin + "&endTime=" + previousMax
         var cut4Speed = (['quarterhour', 'hour'].includes( selectorRes.items[0] )) ? timeFilter : ""
         toasts.push( loadingToast() )
@@ -74,7 +74,7 @@ var reloadData = function() {
                 console.log(`innerLength: ${innerLength}` )
                 for (let i = 1; i < innerLength; i++) {
                     // duplicate the timestamp to each series (innerList[0])
-                    const newList = dbData.map( innerList => [ apiToChartTime(innerList[0]), innerList[i] ] )
+                    const newList = dbData.map( innerList => [ innerList[0], innerList[i] ] )
                     var seriesColumnName = ordering[i+2]
 
                     timeChart.addSeries({
