@@ -1,6 +1,6 @@
 "use strict";
 
-import {toast} from "./script.js";
+import {toast, apiToChartTime} from "./script.js";
 import {filters, cma_options, reloadData, resolutions, translations} from "./flask_variables.js";
 export { timeChart, selectorFilter, selectorRes, cma_selector, cma_replacement, dunkelflauteColor, Match, timeShares }
 
@@ -17,7 +17,7 @@ Highcharts.setOptions({ time: { timezone: 'Europe/Berlin' } })
 
 Highcharts.getJSON('/api', function(data) {
     var grid_load = data['series'].map(triple => {
-        return [triple[0], triple[2]]
+        return [apiToChartTime(triple[0]), triple[2]]
     })
     // Calculating a virtual percentage/max_share line of (wind+solar) on total demand if resLoad + gridLoad are available
     if( data['ordering'][3] === 'power_consumption_residual_load'
@@ -25,7 +25,7 @@ Highcharts.getJSON('/api', function(data) {
         console.log("Drawing computed percentage/max_share line of (wind+solar)")
 
         timeShares = data['series'].map(triple => {
-            return [triple[0], 1- (triple[1] / triple[2])]
+            return [apiToChartTime(triple[0]), 1- (triple[1] / triple[2])]
         })
     }
 

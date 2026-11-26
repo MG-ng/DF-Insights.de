@@ -2,7 +2,7 @@
 // if there is a typo in referencing a variable, without this, there would be created a new undefined
 
 
-import {toast, getTurboColor} from "./script.js";
+import {toast, getTurboColor, apiToChartTime} from "./script.js";
 
 export { bubbleChart }
 
@@ -226,7 +226,7 @@ async function updateChartWithRealData() {
             var index = [xColumn, yColumn, sizeColumn, colorColumn].findIndex("dp_in_before_after_range")
         }*/
         return ({
-            name: smartTimestamp(row.start_time, 'date'),
+            name: smartTimestamp(apiToChartTime(row.start_time), 'date'),
             x: parseFloat(row[xColumn]) || 0,
             y: parseFloat(row[yColumn]) || 0,
             z: parseFloat(row[sizeColumn]) || 0,
