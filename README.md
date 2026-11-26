@@ -169,8 +169,7 @@ Put a reverse proxy such as nginx in front of it for HTTPS and gzip compression.
 
 ## Support
 
-Contact me via [email](mailto:markus.gockel@tum.de) or
-[LinkedIn](https://www.linkedin.com/in/markusgockel/). Ideas for future
+Contact me via [LinkedIn](https://www.linkedin.com/in/markusgockel/). Ideas for future
 features are welcome.
 
 ## Contributing
