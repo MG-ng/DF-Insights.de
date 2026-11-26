@@ -10,7 +10,7 @@
  */
 import { utcMsToBerlin, berlinToUtcMs } from "./berlinTime.js"
 import { fitYRange, RANGE_SELECTOR_BUTTONS } from "./plotlyTimeChart.js"
-import { toast, apiToChartTime } from "./script.js"
+import { toast } from "./script.js"
 export { priceCandles }
 
 const DEFAULT_PRICE_FILTER = 'Market_Price_GER_LUX'
@@ -39,7 +39,7 @@ const priceCandles = {
             .then(data => {
                 const rows = data['series'] ?? []
                 this.name = data['name'] ?? ''
-                this.xMs = rows.map(row => apiToChartTime(row[0]))  // epoch seconds -> ms
+                this.xMs = rows.map(row => row[0])  // UTC ms
                 this.days = this.xMs.map(ms => utcMsToBerlin(ms).slice(0, 10))
                 this.open = rows.map(row => row[1])
                 this.high = rows.map(row => row[2])

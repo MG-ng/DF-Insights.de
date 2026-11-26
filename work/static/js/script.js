@@ -1,11 +1,8 @@
 "use strict"; // Turns on strict mode for this compilation unit: No implicit global variables possible
 // if there is a typo in referencing a variable, without this, there would be created a new undefined
 
-export { randomHSL, toast, loadingToast, unix_time_duration, getTurboColor, apiToChartTime, chartToApiTime }
+export { randomHSL, toast, loadingToast, unix_time_duration, getTurboColor }
 
-// The API sends and expects epoch seconds (UTC), the charts work with epoch milliseconds (JavaScript Date)
-const apiToChartTime = seconds => seconds * 1000
-const chartToApiTime = milliseconds => Math.round(milliseconds / 1000)
 
 console.log("Executing script.js……")
 
