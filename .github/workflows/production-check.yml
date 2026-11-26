@@ -1,0 +1,25 @@
+# Nightly check that production is up and runs the latest main (catches broken or stale deploys).
+name: Production check
+
+on:
+  schedule:
+    - cron: "17 4 * * *" # daily, 04:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    name: Smoke test df-insights.de
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      # Fails when production does not run the latest commit on main, e.g. a deploy is waiting for approval.
+      - name: Smoke test
+        run: .github/scripts/smoke-test.sh https://df-insights.de "$(git rev-parse HEAD)"

@@ -142,7 +142,8 @@ FilterTranslationsList = [
     "Production_Forecast_Wind_and_PV",
     "Production_Forecast_Total"
 ]
-assert len( FilterTranslationsList ) == len( FILTER.keys() )
+if len( FilterTranslationsList ) != len( FILTER.keys() ):
+	raise ValueError( "FilterTranslationsList and FILTER must have the same number of entries" )
 
 FilterTranslations = bidict( zip( FILTER.keys(), FilterTranslationsList ) )
 # print( FilterTranslations)

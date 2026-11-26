@@ -1,0 +1,10 @@
+# Lint settings for `ruff check` (run from work/). Deliberately conservative to start with:
+# syntax errors (E9) and pyflakes (F: undefined names, unused imports, ...). No formatter yet.
+target-version = "py312"
+extend-exclude = [
+	# Exploratory scripts, not production code. The automated tests in tests/automated are linted.
+	"tests/*.py",
+]
+
+[lint]
+select = ["E9", "F"]

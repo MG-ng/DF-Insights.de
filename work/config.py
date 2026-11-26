@@ -1,6 +1,6 @@
 import os
 import sqlite3
-import subprocess
+import subprocess  # nosec B404 # only used for the fixed git command below
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -56,7 +56,7 @@ def _detect_app_version():
     if configured:
         return configured
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 B607 # fixed git command, no shell, no user input
             ["git", "-C", str(PROJECT_ROOT), "log", "-1", "--format=%h %cs"],
             capture_output=True, text=True, timeout=5, check=True,
         )

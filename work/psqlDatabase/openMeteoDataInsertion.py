@@ -44,7 +44,7 @@ def replace_historical_rows(dataframe, start_date, end_date, clear_date_range):
 					DELETE FROM {TABLE_NAME_OPEN_METEO}
 					WHERE date >= :start_date
 					  AND date < :end_date;
-				"""),
+				"""),  # nosec B608 # table name is a Helper.py constant, values are bound parameters
 				{
 					"start_date": start_date,
 					"end_date": end_date,

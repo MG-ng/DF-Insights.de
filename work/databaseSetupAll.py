@@ -1,7 +1,7 @@
 import argparse
 import os
 import signal
-import subprocess
+import subprocess  # nosec B404 # runs this repo's own setup scripts
 import sys
 import time
 from dataclasses import dataclass
@@ -80,7 +80,7 @@ def run_step(step, position, total, environment, dry_run):
         return True
 
     started_at = time.monotonic()
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603 # the current Python running a setup script from this repo, no shell
         command,
         cwd=PROJECT_ROOT,
         env=environment,

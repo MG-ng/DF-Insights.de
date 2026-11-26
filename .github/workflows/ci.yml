@@ -1,0 +1,120 @@
+# Checks on every pull request and every push to main (phase 1 of the CI plan).
+# Third-party actions are pinned to a commit SHA; the comment names the release.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  GITLEAKS_VERSION: "8.30.1"
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+
+defaults:
+  run:
+    working-directory: work
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install ruff
+        run: pip install "$(grep -E '^ruff==' requirements-dev.txt)"
+      - name: ruff check
+        run: ruff check --output-format=github .
+
+  security:
+    name: Security (pip-audit, bandit, gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans the whole history
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install audit tools
+        run: pip install "$(grep -E '^pip-audit==' requirements-dev.txt)" "$(grep -E '^bandit==' requirements-dev.txt)"
+
+      # Fails on any known advisory. To accept one for now, add
+      # `--ignore-vuln <ID>` here with a comment giving the reason and a review date.
+      - name: pip-audit (server dependencies)
+        run: pip-audit --strict --progress-spinner off -r requirements.txt
+      - name: pip-audit (exploration dependencies)
+        run: pip-audit --progress-spinner off -r tests/requirements.txt
+
+      # Any finding fails. A reviewed false positive gets an inline comment on its line,
+      # with the reason after a second #, e.g.  # nosec B608 # table name is a constant
+      - name: bandit
+        run: bandit -q -r . -x ./tests
+
+      - name: Install gitleaks
+        working-directory: ${{ runner.temp }}
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$archive" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${archive}" | sha256sum --check
+          tar -xzf "$archive" gitleaks
+      - name: gitleaks (full history)
+        working-directory: .
+        run: ${{ runner.temp }}/gitleaks git --redact --no-banner --exit-code 1 .
+
+  tests:
+    name: Tests (pytest + PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci # throwaway container, not a real secret
+          POSTGRES_DB: smard_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d smard_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: smard_test
+      DB_USER: ci
+      DB_PASSWORD: ci
+      APP_VERSION: ci
+      REQUIRE_DB: "1" # the database tests must run here, not be skipped
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: work/requirements*.txt
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: pytest
+        run: pytest

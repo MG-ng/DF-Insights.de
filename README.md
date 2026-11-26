@@ -30,7 +30,11 @@ work/
   psqlDatabase/           Schema creation, SMARD/Open-Meteo import and SQL queries
   templates/              Jinja2 pages (index, features, usage, prediction, about)
   static/                 JavaScript, CSS and images
-  tests/                  Exploration scripts and experiments (not an automated test suite)
+  requirements-dev.txt    Tools for tests and CI checks (pytest, ruff, pip-audit, bandit)
+  tests/                  Exploration scripts and experiments (with their own requirements.txt)
+  tests/automated/        Automated test suite (pytest)
+.github/workflows/        CI checks, approval-gated deploy and the nightly production check
+.github/deploy/           Server deploy script and its one-time setup (SETUP.md)
 ```
 
 ## Requirements
@@ -160,6 +164,42 @@ cd work
 ```
 
 Put a reverse proxy such as nginx in front of it for HTTPS and gzip compression.
+
+## Tests and CI
+
+The automated tests live in `work/tests/automated/` and run from `work/`:
+
+```shell
+.venv/bin/pip install -r work/requirements-dev.txt
+cd work
+../.venv/bin/pytest
+```
+
+Most tests need no database. The tests in `test_api_database.py` load a tiny
+fixture dataset into the database configured by the `DB_*` variables, so point
+them at an **empty test database**, never at the production one (they create
+and truncate `smard_data_collection`). Without a reachable database these
+tests are skipped.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and every
+push to `main`:
+
+| Job      | What it checks                                                               |
+|----------|------------------------------------------------------------------------------|
+| lint     | `ruff check` (syntax errors and pyflakes rules, see `work/ruff.toml`)        |
+| security | `pip-audit` on both requirements files, `bandit` (reviewed false positives are marked inline with `# nosec` and a reason), `gitleaks` on the full git history |
+| tests    | `pytest` against a PostgreSQL 16 service container                           |
+
+### Deploy
+
+When CI passes on `main`, the **Deploy** workflow (`.github/workflows/deploy.yml`)
+waits for approval in the GitHub `production` environment. It then connects to
+the server over SSH with a key that can only run `.github/deploy/deploy.sh`.
+That script checks out the commit, installs the requirements, restarts Gunicorn,
+checks the version in the page footer and rolls back if anything fails. A smoke
+test of https://df-insights.de follows, and the **Production check** workflow
+repeats it every night. The one-time server and GitHub setup is in
+[`.github/deploy/SETUP.md`](.github/deploy/SETUP.md).
 
 ## Data sources and third-party libraries
 

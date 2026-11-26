@@ -30,7 +30,7 @@ def replace_forecast_rows(engine, dataframe, model, start_timestamp, end_timesta
 					WHERE timestamp_s >= :start_timestamp
 					  AND timestamp_s < :end_timestamp
 					  AND model = :model;
-				"""),
+				"""),  # nosec B608 # table name is a Helper.py constant, values are bound parameters
 				{
 					"start_timestamp": start_timestamp,
 					"end_timestamp": end_timestamp,
