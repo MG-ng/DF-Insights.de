@@ -76,6 +76,7 @@ cp .env.example .env
 | `APP_HOST`    | `127.0.0.1`    | Host for the Flask development server     |
 | `APP_PORT`    | `5000`         | Port for the Flask development server     |
 | `APP_DEBUG`   | `false`        | Flask debug mode (never enable in production) |
+| `APP_VERSION` | git commit     | Version shown in the page footer, e.g. `2c34313 2026-11-26`. Empty = short hash and date of the checked-out commit |
 
 `.env` is read from the repository root and is ignored by git. Variables that
 are already set in the shell take precedence over the file. The old `DBP`
