@@ -1,0 +1,13 @@
+# Extra packages for the exploratory scripts in this folder (plots, correlation matrices).
+# The web server does not need them. Install with: pip install -r work/tests/requirements.txt
+-r ../requirements.txt
+
+contourpy==1.3.3
+cycler==0.12.1
+fonttools==4.69.1
+kiwisolver==1.4.9
+matplotlib==3.10.5
+pandas-stubs==2.3.0.250703
+pillow==13.0.0
+pyparsing==3.2.3
+seaborn==0.13.2

@@ -49,6 +49,10 @@ python3 -m venv .venv
 .venv/bin/pip install -r work/requirements.txt
 ```
 
+The exploratory scripts in `work/tests/` (plots, correlation matrices) also need
+matplotlib and seaborn. They are kept out of the server's requirements; install
+them with `.venv/bin/pip install -r work/tests/requirements.txt`.
+
 ### 2. Create the database
 
 The setup scripts create the tables, but not the database itself. For example:
