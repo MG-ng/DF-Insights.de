@@ -6,7 +6,7 @@ from decimal import Decimal
 from sys import float_repr_style
 
 import requests
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, send_from_directory
 from numpy.matlib import empty
 
 from config import APP_DEBUG, APP_HOST, APP_PORT, APP_VERSION
@@ -189,6 +189,16 @@ def enrichedDF():
 	rows, columns = getEnrichedDunkelflauten( tableName )
 
 	return {'ordering': columns, 'series': rows}
+
+
+@app.route('/robots.txt')
+def robots_txt():
+	return send_from_directory( app.static_folder, 'robots.txt', mimetype = 'text/plain' )
+
+@app.route('/.well-known/security.txt')
+def security_txt():
+	"""Where to report security issues (RFC 9116). Renew the Expires date in the file at least once a year."""
+	return send_from_directory( app.static_folder, 'well-known/security.txt', mimetype = 'text/plain' )
 
 
 @app.route('/features')

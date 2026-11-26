@@ -1,0 +1,5 @@
+# Security contact for df-insights.de (format: RFC 9116, https://securitytxt.org)
+Contact: https://github.com/MG-ng/DF-Insights.de/security/advisories/new
+Expires: 2027-11-26T00:00:00Z
+Preferred-Languages: en, de
+Canonical: https://df-insights.de/.well-known/security.txt
