@@ -21,12 +21,15 @@ def get_timeseries( region, resolution, filter_ids, start_ms, end_ms ):
     filter_names_views = [ FilterTranslations[ FILTER.inverse[ id ] ] for id in filterIdsComputed ]
     viewResult = get_computed_timeseries( region, resolution, filter_names_views, start_ms, end_ms )
 
+    # A database error returns (None, None); app.py answers that with an empty series instead of crashing in merge()
+    if smardResult[0] is None or viewResult[0] is None:
+        return None, None
     if len(filterIdsSmard) == 0:
         return viewResult
     if len(filterIdsComputed) == 0:
         return smardResult
 
-    rows = merge(smardResult, viewResult)  # len(viewResult[1])  # ERROR: TypeError: object of type 'NoneType' has no len()
+    rows = merge(smardResult, viewResult)
     cols = smardResult[1][:3] + filter_names_smard + filter_names_views
     return rows, cols
 
@@ -132,7 +135,7 @@ def get_computed_timeseries( region, resolution, filter_names, start_ms, end_ms 
 def merge(smardResult, viewResult):
     smardDict, viewDict, mergedDict = {}, {}, {}
     smardRowDataWidth = len(smardResult[1]) - 3
-    viewsRowDataWidth = len(viewResult[1]) - 3  # ERROR: TypeError: object of type 'NoneType' has no len()
+    viewsRowDataWidth = len(viewResult[1]) - 3
     for row in smardResult[0]:
         smardDict[tuple(row[:3])] = row[3:]
     for row in viewResult[0]:
