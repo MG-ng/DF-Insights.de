@@ -4,7 +4,7 @@ console.log("Executing Search Dunkelflaute…")
 
 import { timeChart, dunkelflauteColor, Match, timeShares } from "./setupHome.js"
 import { priceCandles } from "./priceCandles.js"
-import {loadingToast, randomHSL, toast, unix_time_duration} from "./script.js"
+import {apiToChartTime, loadingToast, randomHSL, toast, unix_time_duration} from "./script.js"
 import {closeLoadingToast, dataResolution, toasts} from "./flask_variables.js"
 window.search_dunkelflaute = search_dunkelflaute  // needed for the button onclick
 window.add_dunkelflaute_timeseries = add_dunkelflaute_timeseries
@@ -35,7 +35,7 @@ function search_dunkelflaute() {
             console.log("Matches: ", data["series"])
 
             for (var time_tuple of data["series"]) {
-                var match = new Match(time_tuple[0], time_tuple[1], null)
+                var match = new Match(apiToChartTime(time_tuple[0]), apiToChartTime(time_tuple[1]), null)
 
                 const band = match.plotBand()
                 timeChart.addBand(band.from, band.to, band.color)
@@ -87,7 +87,7 @@ function add_dunkelflaute_timeseries() {
 
         timeChart.addSeries({
             name: 'Events of Max ' + (input["maxShare"]*100) + "% R.E. & Min " + input["days"] + "d",
-            data: dbData.map(innerList => [innerList[0], innerList[1]]),
+            data: dbData.map(innerList => [apiToChartTime(innerList[0]), innerList[1]]),
             yAxis: 'occurrences',
             color: "#C3003E"
         })
@@ -102,7 +102,7 @@ function add_dunkelflaute_timeseries() {
 
         timeChart.addSeries({
             name: 'Summed Duration of Max ' + (input["maxShare"]*100) + "% R.E. & Min " + input["days"] + "d",
-            data: dbData.map(innerList => [innerList[0], innerList[2]]),
+            data: dbData.map(innerList => [apiToChartTime(innerList[0]), innerList[2]]),
             yAxis: 'duration',
             color: "#C35500"
         })

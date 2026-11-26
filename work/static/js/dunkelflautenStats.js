@@ -2,7 +2,7 @@
 // if there is a typo in referencing a variable, without this, there would be created a new undefined
 
 
-import {toast, getTurboColor} from "./script.js";
+import {toast, getTurboColor, apiToChartTime} from "./script.js";
 
 export { bubbleChart }
 
@@ -90,7 +90,7 @@ async function createChart() {
         name: 'Dunkelflauten in Germany',
         x: rows.map(row => value(row, xColumn)),
         y: rows.map(row => value(row, yColumn)),
-        customdata: rows.map((row, i) => [smartTimestamp(row.start_time, 'date'), sizes[i], row['duration_days'], colors[i]]),
+        customdata: rows.map((row, i) => [smartTimestamp(apiToChartTime(row.start_time), 'date'), sizes[i], row['duration_days'], colors[i]]),
         marker: {
             size: diameters,
             sizemode: 'diameter',

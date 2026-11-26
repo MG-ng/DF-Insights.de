@@ -12,7 +12,7 @@ def get_dunkelflaute_matches( region, resolution, max_share, min_duration_ms, st
         cursor = conn.cursor()
 
         query = sql.SQL("""
-			WITH share_categories as (  -- TODO: FIX 2 hour timezone shift
+			WITH share_categories as (
 				SELECT t.unix_timestamp_ms, t.region, t.resolution, t.share_of_renewable_energies_computed,
 					   CASE WHEN t.share_of_renewable_energies_computed <= %s THEN 'LOW'
 							ELSE 'HIGH' END as current_share

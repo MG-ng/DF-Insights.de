@@ -3,7 +3,7 @@
 /**
  * Time helpers for the Plotly charts.
  *
- * The API delivers unix timestamps in ms (UTC). Plotly has no timezone setting for date axes,
+ * The API delivers unix timestamps in seconds (UTC), apiToChartTime in script.js turns them into ms. Plotly has no timezone setting for date axes,
  * so the timestamps are converted to Europe/Berlin wall clock strings ("YYYY-MM-DD HH:MM:SS")
  * before they are handed to Plotly. CET/CEST switches are handled by Intl.
  */

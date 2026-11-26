@@ -1,6 +1,6 @@
 "use strict";
 
-import {toast} from "./script.js";
+import {toast, apiToChartTime} from "./script.js";
 import { TimeChart } from "./plotlyTimeChart.js";
 import {filters, cma_options, reloadData, resolutions, translations} from "./flask_variables.js";
 export { timeChart, selectorFilter, selectorRes, cma_selector, cma_replacement, dunkelflauteColor, Match, timeShares }
@@ -36,6 +36,7 @@ timeChart = new TimeChart('container', {
 fetch('/api')
     .then(response => response.json())
     .then(data => {
+        data['series'].forEach(row => { row[0] = apiToChartTime(row[0]) })  // epoch seconds -> ms
         var grid_load = data['series'].map(triple => [triple[0], triple[2]])
         var residual_load = data['series'].map(triple => [triple[0], triple[1]])
         // Calculating a virtual percentage/max_share line of (wind+solar) on total demand if resLoad + gridLoad are available

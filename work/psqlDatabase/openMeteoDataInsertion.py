@@ -1,7 +1,7 @@
 import openmeteo_requests
 import pandas as pd
 from retry_requests import retry
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import TIMESTAMP, create_engine, inspect, text
 
 from config import create_cached_http_session, sqlalchemy_database_url
 from Helper import TABLE_NAME_OPEN_METEO
@@ -50,7 +50,9 @@ def replace_historical_rows(dataframe, start_date, end_date, clear_date_range):
 					"end_date": end_date,
 				},
 			)
-		dataframe.to_sql(TABLE_NAME_OPEN_METEO, connection, if_exists="append", index=False)
+		# Store real instants (timestamptz) so they can be compared with the UTC SMARD timestamps directly
+		dataframe.to_sql(TABLE_NAME_OPEN_METEO, connection, if_exists="append", index=False,
+						 dtype={"date": TIMESTAMP(timezone=True)})
 
 
 if __name__ == '__main__':
@@ -63,9 +65,7 @@ if __name__ == '__main__':
 			"end_date": 	str(year) + "-12-31" if year!=2026 else (str(year) + "-06-01"),  # More Weather than SMARD data needed
 			"hourly": [ "temperature_2m", "wind_speed_10m", "wind_speed_100m", "wind_direction_10m", "wind_direction_100m",
 						"direct_radiation", "diffuse_radiation" ],
-			"timezone": [ "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin",
-						  "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin", "Europe/Berlin",
-						  "Europe/Berlin" ],  # TODO: Remove for easier SMARD join
+			"timezone": [ "UTC" ] * 12,  # SMARD timestamps are UTC as well; local time is only applied for display
 			"wind_speed_unit": "ms",
 		}
 		responses = openmeteo.weather_api( url, params = params )
@@ -94,12 +94,11 @@ if __name__ == '__main__':
 			hourly_diffuse_radiation = hourly.Variables( 6 ).ValuesAsNumpy()
 
 			hourly_data = { "date": pd.date_range(
-				# TODO: change timezone to utc in the request too
 				start = pd.to_datetime( hourly.Time(), unit = "s", utc = True ),
 				end = pd.to_datetime( hourly.TimeEnd(), unit = "s", utc = True ),
 				freq = pd.Timedelta( seconds = hourly.Interval() ),
 				inclusive = "left",
-			).tz_convert("Europe/Berlin") }
+			) }
 
 			hourly_data[ "unix_timestamp_s" ] = hourly.Time()
 			hourly_data[ "lat" ] = hourly_lat
@@ -133,9 +132,7 @@ if __name__ == '__main__':
 			replace_historical_rows(
 				hourly_dataframe,
 				hourly_dataframe["date"].iloc[0].to_pydatetime(),
-				pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True)
-					.tz_convert("Europe/Berlin")
-					.to_pydatetime(),
+				pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True).to_pydatetime(),
 				clear_date_range,
 			)
 			clear_date_range = False
