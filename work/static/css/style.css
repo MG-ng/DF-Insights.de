@@ -181,8 +181,17 @@ textarea.form-group {
 }
 
 #container {
-    height: 600px;
+    height: 650px;
     min-width: 310px;
+}
+
+#candlestick-container {
+    height: 500px;
+    min-width: 310px;
+}
+
+.chart-loading {
+    opacity: 0.5;
 }
 
 

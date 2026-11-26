@@ -49,13 +49,8 @@
         <p>Created by Markus Gockel, a TUM Student</p>
     </footer>
 
-    <!-- HighCharts -->
-    <script src="https://code.highcharts.com/stock/highstock.js"></script>
-    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
-
-    <script src="https://code.highcharts.com/highcharts-more.js"></script>
-    <script src="https://code.highcharts.com/modules/exporting.js"></script>
-    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <!-- Plotly.js charts (MIT licence), self-hosted partial "finance" bundle: scatter, bar, candlestick, ohlc, ... -->
+    <script src="{{ url_for('static', filename='vendor/plotly/plotly-finance-4.3.0.min.js') }}"></script>
 
     <!-- Tom Select -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
