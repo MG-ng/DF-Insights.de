@@ -44,11 +44,8 @@ def get_smard_timeseries( region, resolution, filter_names, start_ms, end_ms ):
         conn = psycopg2.connect( **DB_PARAMS )
         cursor = conn.cursor()
 
-        query = sql.SQL("""-- I wish Highcharts is automatically converting the unix timestamp to the local timezone
-						SELECT (extract( EPOCH FROM (to_timestamp(unix_timestamp_ms/1000)
-								AT TIME ZONE 'Europe/Berlin')) *1000)::BIGINT								
-								AS unix_timestamp_ms, 
-								region, resolution, {columns}
+        query = sql.SQL("""-- Timestamps stay UTC; the chart displays them in Europe/Berlin (Highcharts time.timezone)
+						SELECT unix_timestamp_ms, region, resolution, {columns}
 							FROM {table_name}
 							WHERE region = %s
                                 AND resolution = %s
@@ -82,16 +79,10 @@ def get_computed_timeseries( region, resolution, filter_names, start_ms, end_ms 
         query = sql.SQL("""
                         WITH filled_primary_keys AS (
                             SELECT *,
-                            		-- computed_data_historical_weather_agg date already in TZ 'Europe/Berlin'
-									-- smard_data_collection in 'UTC'
+                                   -- smard_data_collection and computed_data_historical_weather_agg are both UTC
                                    CASE
 										WHEN pct.unix_timestamp_ms IS NULL THEN rsett.unix_timestamp_ms
 										ELSE pct.unix_timestamp_ms END AS unix_timestamp_ms_filled,
-                                   extract( EPOCH FROM
-                                            to_timestamp( (CASE
-                                                WHEN pct.unix_timestamp_ms IS NULL THEN rsett.unix_timestamp_ms
-                                                ELSE pct.unix_timestamp_ms END) /1000)
-                                                AT TIME ZONE 'Europe/Berlin') AS tstz,  -- convert here for performance
                                    CASE
                                        WHEN pct.region IS NULL THEN rsett.region
                                        ELSE pct.region END AS region_filled,
@@ -101,13 +92,12 @@ def get_computed_timeseries( region, resolution, filter_names, start_ms, end_ms 
                                 FROM {view_name_price_change} pct
                                          NATURAL FULL JOIN {view_name_re_share_ext_trade} rsett)
 						 -- TODO: move to s instead of ms
-                        SELECT (extract(EPOCH FROM (to_timestamp(t.unix_timestamp_ms_filled/1000)                         		
-                        		AT TIME ZONE 'Europe/Berlin'))*1000)::BIGINT as unix_timestamp_ms, 
+                        SELECT t.unix_timestamp_ms_filled as unix_timestamp_ms,
                         		t.region_filled as region,
 								t.resolution_filled as resolution, {columns}
                             FROM filled_primary_keys t
                             LEFT JOIN {view_name_historical_weather_agg} weather
-                                ON extract(EPOCH FROM weather.date) = t.tstz
+                                ON weather.date = to_timestamp(t.unix_timestamp_ms_filled / 1000.0)
                                     AND t.resolution_filled::text in ('hour', 'day')
                                     AND t.resolution_filled::text = weather.resolution
                             WHERE t.region_filled = %s
