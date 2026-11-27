@@ -140,9 +140,18 @@ Repository **Settings → Environments → New environment**, name `production`:
 | Secret               | Value                                                    |
 |----------------------|----------------------------------------------------------|
 | `DEPLOY_SSH_KEY`     | the whole content of the private key file `df-insights-deploy` |
-| `DEPLOY_KNOWN_HOSTS` | the line printed by `ssh-keyscan -t ed25519 <server>`    |
-| `DEPLOY_HOST`        | the server's host name or IP                             |
-| `DEPLOY_USER`        | `ubuntu`                                                 |
+| `DEPLOY_KNOWN_HOSTS` | the line printed by `ssh-keyscan -t ed25519 <server>`, using the same name as `DEPLOY_HOST` |
+
+- **Environment variables** (not secret, so GitHub does not mask them in logs):
+
+| Variable      | Value                                  |
+|---------------|----------------------------------------|
+| `DEPLOY_HOST` | the server's host name, e.g. `df-insights.de` |
+| `DEPLOY_USER` | `ubuntu`                               |
+
+The `DEPLOY_KNOWN_HOSTS` line starts with the name(s) SSH may use for the server.
+It must contain the `DEPLOY_HOST` value. To allow both the domain and the IP,
+list both, separated by a comma: `df-insights.de,203.0.113.7 ssh-ed25519 AAAA...`
 
 Then delete the private key file from your computer. GitHub has the only copy
 it needs. If the key ever leaks, remove its line from `authorized_keys` and
