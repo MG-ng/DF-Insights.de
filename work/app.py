@@ -303,7 +303,7 @@ def forecast():
 
 @app.route('/dunkelflaute-outlook')
 def dunkelflaute_outlook_route():
-	"""15-day Dunkelflaute probabilities from three weather ensembles (see prediction/live.py), cached for 3 hours."""
+	"""15-day Dunkelflaute probabilities from three weather ensembles (see prediction/live.py), cached for 6 hours."""
 	try:
 		outlook = dunkelflaute_outlook.cached_outlook()
 	except (requests.RequestException, RuntimeError, ValueError, KeyError) as error:

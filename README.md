@@ -151,7 +151,7 @@ Notes:
 |------|---------|
 | `features.py` | Model points and hourly weather to daily features (turbine power curve applied hourly) |
 | `model.py` | Energy model at runtime: weather features to wind, solar, demand and renewable share |
-| `live.py` | Fetches the ECMWF IFS, ECMWF AIFS and NOAA GEFS ensembles (Open-Meteo), cached 3 hours |
+| `live.py` | Fetches the ECMWF IFS, ECMWF AIFS and NOAA GEFS ensembles (Open-Meteo), cached 6 hours |
 | `train.py` | Fits the model, runs the backtest, writes `model.json` and `backtest.json` |
 | `fetch_training_data.py` | Downloads SMARD, ERA5, sea level pressure and archived forecasts to `prediction/data/` |
 

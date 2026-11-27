@@ -10,7 +10,7 @@ so both weather uncertainty (member spread) and energy-model error are included.
 sea level pressure is also sorted into the 7 weather regimes, giving regime probabilities per day.
 
 Open-Meteo's free tier is metered per location, variable and member, so results are cached for
-3 hours in a file in the temp directory, shared by all web server workers. If a refresh fails,
+6 hours in a file in the temp directory, shared by all web server workers. If a refresh fails,
 the last result is served for up to a day.
 """
 import datetime as dt
@@ -37,7 +37,7 @@ ENSEMBLES = {
 	"gfs05": "NOAA GEFS",
 }
 REGIME_MODEL = "ecmwf_ifs025"
-CACHE_SECONDS = 3 * 3600
+CACHE_SECONDS = 6 * 3600  # the ensembles update every 6 to 12 hours anyway
 FORECAST_DAYS = 15
 
 STALE_SECONDS = 24 * 3600
@@ -277,7 +277,7 @@ def multi_day_events( model, table, today, sigma, draws = 40, rho = 0.6, min_day
 
 
 def cached_outlook():
-	"""The outlook, rebuilt at most every 3 hours; on failure the last good one (up to a day old)."""
+	"""The outlook, rebuilt at most every 6 hours; on failure the last good one (up to a day old)."""
 	with _lock:
 		if _cache[ "value" ] is None or time.time() - _cache[ "time" ] > CACHE_SECONDS:
 			stamp, value = _read_cache_file()  # another worker may have refreshed it
