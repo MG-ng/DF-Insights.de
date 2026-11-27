@@ -54,11 +54,14 @@ jobs:
       # The key can only run deploy.sh on the server (forced command); the SHA is its only argument.
       - name: Deploy ${{ env.DEPLOY_SHA }}
         env:
-          # Not secret (the host name is public). Kept as environment variables so they are not
-          # masked in logs; the secret of the same name still works as a fallback.
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST || secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ vars.DEPLOY_USER || secrets.DEPLOY_USER }}
+          # Environment variables, not secrets: the host name is public, and secrets would be masked in logs
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
         run: |
+          if [[ -z "$DEPLOY_HOST" || -z "$DEPLOY_USER" ]]; then
+            echo "::error::Set DEPLOY_HOST and DEPLOY_USER as variables of the production environment"
+            exit 1
+          fi
           ssh -i ~/.ssh/deploy_key \
             -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes \
             -o ConnectTimeout=20 -o ServerAliveInterval=15 \
