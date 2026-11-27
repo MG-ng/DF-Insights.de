@@ -27,29 +27,31 @@
         <li><a href="#market">How the German power price is made</a></li>
         <li><a href="#options">Your options at a glance</a></li>
         <li><a href="#certificates">Exchange-traded certificates on the power price</a></li>
+        <li><a href="#start">Getting started, step by step</a></li>
         <li><a href="#futures">EEX power futures</a></li>
         <li><a href="#cfd">CFDs</a></li>
         <li><a href="#proxies">Indirect exposure: utilities, carbon, gas</a></li>
         <li><a href="#betting">Betting and prediction markets</a></li>
         <li><a href="#physical">The physical route: tariffs and balcony solar</a></li>
         <li><a href="#tax">Taxes in Germany</a></li>
-        <li><a href="#dunkelflaute">Using Dunkelflaute data for a trading view</a></li>
+        <li><a href="#examples">Worked examples with real numbers</a></li>
+        <li><a href="#dunkelflaute">Using this site's Dunkelflaute data for a trading view</a></li>
         <li><a href="#risks">Risk checklist</a></li>
         <li><a href="#sources">Sources</a></li>
     </ol>
 
     <hr>
 
-    <!-- 1 -->
     <h2 class="text-muted fw-bolder" id="tldr">1) The short version</h2>
     <ul>
         <li>You <strong>cannot buy electricity itself</strong> as an investment, and there is
-            no plain, unleveraged ETF or ETC on the German power price.</li>
-        <li>The most realistic route for a private investor is a
-            <strong>leveraged certificate (Mini Future or Turbo)</strong> on an
-            <strong>EEX German Power future</strong>, bought through a normal German securities
-            account (Depot). Vontobel, for example, issued long and short Mini Futures on the
-            EEX German Power Base Quarter Future in 2023.</li>
+            no ETF or ETC on the German power price.</li>
+        <li>The realistic route for a private investor is a <strong>certificate on an
+            EEX German Power future</strong>, bought through a normal German securities account
+            (Depot). In November 2026 we found two kinds listed: leveraged long and short
+            <strong>Mini Futures from Vontobel</strong> on the next quarter's base future, and an
+            unleveraged <strong>open-end participation certificate from HypoVereinsbank
+            (UniCredit)</strong> on the base year future for 2027.</li>
         <li><strong>Direct EEX futures</strong> are built for utilities and traders: one
             contract is 1&nbsp;MW for every hour of the delivery period, so a single year
             contract covers about 8,760&nbsp;MWh. Very few retail brokers offer them.</li>
@@ -63,7 +65,6 @@
 
     <hr>
 
-    <!-- 2 -->
     <h2 class="text-muted fw-bolder" id="market">2) How the German power price is made</h2>
     <p>
         Before you trade it, it helps to know which "power price" you are actually trading.
@@ -100,7 +101,6 @@
 
     <hr>
 
-    <!-- 3 -->
     <h2 class="text-muted fw-bolder" id="options">3) Your options at a glance</h2>
     <div class="table-responsive">
         <table class="table table-sm table-striped align-middle">
@@ -169,21 +169,57 @@
 
     <hr>
 
-    <!-- 4 -->
     <h2 class="text-muted fw-bolder" id="certificates">4) Exchange-traded certificates on the power price</h2>
     <p>
-        Banks issue <strong>leverage certificates</strong> (Hebelprodukte) whose underlying is an
-        EEX German Power future. They are bonds of the issuing bank, traded like a share on
-        German exchanges such as Börse Stuttgart or Börse Frankfurt and through most online
-        brokers. In 2023 Vontobel introduced long and short <strong>Mini Futures on the
-        EEX German Power Base Quarter Future</strong> and called itself the first issuer to do so.
-        HypoVereinsbank's onemarkets brand has also covered the power price in its
-        certificate blog.
+        Banks issue <strong>certificates</strong> whose underlying is an EEX German Power future.
+        They are bonds of the issuing bank, traded like a share on German exchanges such as
+        Börse Frankfurt, Börse Stuttgart or gettex, or directly with the issuer through most
+        online brokers. Only a handful exist. These are the ones we could find in November 2026:
+    </p>
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead>
+            <tr>
+                <th>Product</th>
+                <th>Issuer</th>
+                <th>Underlying</th>
+                <th>Leverage</th>
+                <th>Notes</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>Open-end participation certificate<br><small>WKN HC66MN, ISIN DE000HC66MN5</small></td>
+                <td>UniCredit Bank (HypoVereinsbank, onemarkets)</td>
+                <td>EEX Phelix DE Base Year Future, delivery 2027</td>
+                <td>None (1:1)</td>
+                <td>Ratio 0.001, so one certificate is roughly 1&nbsp;kWh of baseload power in
+                    2027. Management fee 2&nbsp;% a year. Issued in April 2023; the issuer can
+                    terminate it. Quoted on gettex and directly by UniCredit; tradable through
+                    e.g. comdirect, Consorsbank and flatex.</td>
+            </tr>
+            <tr>
+                <td>Mini Futures, long and short<br><small>e.g. ISIN DE000VD5S267 (Börse Frankfurt), DE000VD03X59</small></td>
+                <td>Vontobel</td>
+                <td>EEX German Power Base Quarter Future, the next quarter to mature</td>
+                <td>Chosen by product, roughly 1.5 to 7</td>
+                <td>Vontobel launched them in October 2023 as the first issuer of such products.
+                    New strikes are issued from time to time; old ones get knocked out.
+                    Vontobel also has Mini Futures on Dutch TTF gas.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <p>
+        Product lists change every week. Treat the ISINs above as a starting point for your own
+        search, not as a recommendation, and check on the issuer's page that a product is still
+        active before you buy it.
     </p>
     <h4>How to find them</h4>
     <ol>
-        <li>Open the product search of an issuer or an exchange and filter by underlying
-            "Strom", "German Power" or "Phelix".</li>
+        <li>Open the product search of an issuer (Vontobel markets, onemarkets.de), an exchange
+            (Börse Frankfurt, Börse Stuttgart, gettex) or a portal (onvista, finanzen.net) and
+            search for the underlying "Strom", "German Power" or "Phelix".</li>
         <li>Check the exact underlying: which contract (Base or Peak, quarter or year) and how
             the issuer <strong>rolls</strong> from one contract to the next. A roll can shift the
             price level of your certificate.</li>
@@ -191,13 +227,18 @@
             Mini Future, the strike is adjusted daily by a financing rate, which costs long
             holders money every day.</li>
         <li>Look at the <strong>bid-ask spread</strong> and the trading hours. If the
-            underlying future does not trade, the issuer may widen spreads or stop quoting.</li>
+            underlying future does not trade, the issuer may widen spreads or stop quoting.
+            Watch out for low-priced certificates: the HVB certificate was quoted at
+            0.150&nbsp;&euro; bid and 0.160&nbsp;&euro; ask in November 2026, so the smallest
+            price step alone was a spread of about 6&nbsp;%.</li>
     </ol>
     <h4>What you have to know</h4>
     <ul>
-        <li><strong>Knock-out means total loss.</strong> In August 2022 the German year
-            contract went to nearly 1,000&nbsp;&euro;/MWh and then fell by more than half within
-            weeks. Many leveraged positions would not have survived that on either side.</li>
+        <li><strong>Knock-out means total loss.</strong> In late August 2022 German power futures
+            peaked at about 1,000&nbsp;&euro;/MWh (the base quarter future at 993&nbsp;&euro;/MWh)
+            and by the end of March 2024 the quarter future was just under 70&nbsp;&euro;/MWh, the
+            lowest since mid-2021. Many leveraged positions would not have survived moves like
+            that on either side.</li>
         <li><strong>Issuer risk.</strong> A certificate is unsecured debt of the issuer. If the
             issuer fails, you can lose your money even if your view was right. There is no
             deposit insurance.</li>
@@ -215,8 +256,67 @@
 
     <hr>
 
-    <!-- 5 -->
-    <h2 class="text-muted fw-bolder" id="futures">5) EEX power futures</h2>
+    <h2 class="text-muted fw-bolder" id="start">5) Getting started, step by step</h2>
+    <p>
+        This is the path through a normal German online broker to a certificate on the power
+        price. It takes about a week, mostly waiting for the account to open.
+    </p>
+    <ol class="trade-steps">
+        <li>
+            <strong>Decide what you actually want.</strong> A view on prices for the next few
+            months (then the quarter Mini Futures fit), a long-term view on the next calendar
+            year (the year certificate), or a hedge for your own power bill (only meaningful if
+            your bill follows the market, see <a href="#physical">the physical route</a>).
+            Write down why you think the market is wrong. If you can't, you are gambling.
+        </li>
+        <li>
+            <strong>Open a securities account (Depot)</strong> at a broker supervised by BaFin or
+            another EU regulator. Check that it trades on gettex, Börse Frankfurt or Börse
+            Stuttgart, or directly with the issuers (Vontobel, UniCredit). A German broker
+            withholds tax for you; with a foreign one you declare the gains yourself.
+        </li>
+        <li>
+            <strong>Answer the appropriateness questions honestly.</strong> Under MiFID&nbsp;II your
+            broker asks about your experience with derivatives. For turbo and knock-out products
+            you must also pass BaFin's knowledge test (since 16 June 2026), which you repeat every
+            six months.
+        </li>
+        <li>
+            <strong>Set up a tax exemption order (Freistellungsauftrag)</strong> for up to
+            1,000&nbsp;&euro; (2,000&nbsp;&euro; for couples) of capital income per year.
+        </li>
+        <li>
+            <strong>Look up the price of the underlying.</strong> EEX publishes daily settlement
+            prices of its power futures in its Market Data Hub. Compare them with the spot prices
+            on <a href="{{ url_for('index') }}">our home page</a> to see whether the futures
+            market expects prices above or below today's level.
+        </li>
+        <li>
+            <strong>Find a product and read its key information document</strong>
+            (Basisinformationsblatt, a legally required summary of costs and risks) and the
+            final terms. Note the underlying contract, the ratio, the roll rule, the knock-out or
+            stop-loss level, the financing costs and the fees.
+        </li>
+        <li>
+            <strong>Size the position so that a total loss does not hurt.</strong> With a leverage
+            of 5, a 20&nbsp;% move of the underlying against you wipes out the certificate. Power
+            futures have moved that much within days.
+        </li>
+        <li>
+            <strong>Place a limit order while EEX is open</strong> (weekdays 8:00 to 18:00). Outside
+            those hours the issuer has no live price for the underlying, and spreads are wider
+            or there is no quote at all.
+        </li>
+        <li>
+            <strong>Plan the exit.</strong> Decide in advance at which price you take profit or
+            cut the loss, and note the roll dates of the underlying. Check the position daily:
+            a Mini Future can be stopped out while you are not looking.
+        </li>
+    </ol>
+
+    <hr>
+
+    <h2 class="text-muted fw-bolder" id="futures">6) EEX power futures</h2>
     <p>
         The futures themselves are traded on EEX in Leipzig and cleared by its clearing house
         ECC, which takes over the counterparty risk. Key facts from EEX:
@@ -237,8 +337,10 @@
         1&nbsp;&euro;/MWh changes your profit or loss by about 8,760&nbsp;&euro;. A month
         contract is about 12 times smaller, but still moves by about 720&nbsp;&euro; per
         1&nbsp;&euro;/MWh. Trading needs a broker that is a clearing member at ECC (or uses
-        one), and most German retail brokers do not offer EEX power at all. Ask your broker
-        directly before you open an account for this purpose.
+        one), and retail brokers generally do not offer EEX power. For example, the futures
+        fee schedule of Interactive Brokers, a popular broker for private futures traders,
+        lists Eurex and ICE Endex (gas and carbon) but no EEX power contracts (checked November
+        2026). Ask a broker directly before you open an account for this purpose.
     </p>
     <p>
         Futures can cost more than your deposit: if prices move against you, the broker
@@ -250,8 +352,7 @@
 
     <hr>
 
-    <!-- 6 -->
-    <h2 class="text-muted fw-bolder" id="cfd">6) CFDs</h2>
+    <h2 class="text-muted fw-bolder" id="cfd">7) CFDs</h2>
     <p>
         A CFD (contract for difference) pays the price change of an underlying without owning it.
         If a CFD provider lists German power at all, EU and BaFin rules for retail clients apply:
@@ -273,8 +374,7 @@
 
     <hr>
 
-    <!-- 7 -->
-    <h2 class="text-muted fw-bolder" id="proxies">7) Indirect exposure: utilities, carbon, gas</h2>
+    <h2 class="text-muted fw-bolder" id="proxies">8) Indirect exposure: utilities, carbon, gas</h2>
     <p>
         If you want exposure to the forces behind the power price rather than the price itself,
         ordinary, unleveraged products are available in any Depot:
@@ -299,8 +399,7 @@
 
     <hr>
 
-    <!-- 8 -->
-    <h2 class="text-muted fw-bolder" id="betting">8) Betting and prediction markets</h2>
+    <h2 class="text-muted fw-bolder" id="betting">9) Betting and prediction markets</h2>
     <p>
         Betting on "Will the day-ahead price exceed 300&nbsp;&euro;/MWh next week?" sounds
         attractive, but from Germany it is not a legal option:
@@ -325,8 +424,7 @@
 
     <hr>
 
-    <!-- 9 -->
-    <h2 class="text-muted fw-bolder" id="physical">9) The physical route: tariffs and balcony solar</h2>
+    <h2 class="text-muted fw-bolder" id="physical">10) The physical route: tariffs and balcony solar</h2>
     <p>
         The most direct way for a household to "trade" the spot price is to buy power at it:
     </p>
@@ -349,8 +447,7 @@
 
     <hr>
 
-    <!-- 10 -->
-    <h2 class="text-muted fw-bolder" id="tax">10) Taxes in Germany</h2>
+    <h2 class="text-muted fw-bolder" id="tax">11) Taxes in Germany</h2>
     <ul>
         <li><strong>Flat tax</strong>: gains from certificates, futures, CFDs, ETCs and shares are
             income from capital (§&nbsp;20 EStG) and taxed at 25&nbsp;% Abgeltungsteuer plus
@@ -366,14 +463,109 @@
         <li><strong>Foreign brokers</strong> usually do not withhold German tax. You must declare
             the gains yourself in Anlage KAP of your tax return.</li>
         <li><strong>Gambling</strong> winnings are generally not taxed in Germany, but that does
-            not make an unlicensed betting site legal (see section 8).</li>
+            not make an unlicensed betting site legal (see <a href="#betting">betting and prediction markets</a>).</li>
     </ul>
     <p>Ask a tax adviser (Steuerberater) or a Lohnsteuerhilfeverein for your own case.</p>
 
     <hr>
 
-    <!-- 11 -->
-    <h2 class="text-muted fw-bolder" id="dunkelflaute">11) Using Dunkelflaute data for a trading view</h2>
+    <h2 class="text-muted fw-bolder" id="examples">12) Worked examples with real numbers</h2>
+    <p>
+        The spot prices below are real SMARD day-ahead prices for Germany-Luxembourg. Futures
+        entry prices marked as "assumed" are made up for illustration, because historical
+        futures prices are not freely available.
+    </p>
+
+    <h4>Example 1: the Dunkelflaute of December 2024</h4>
+    <p>
+        In the week of 9 to 15 December 2024 a high-pressure system brought little wind and
+        hardly any sun. Day-ahead prices (daily averages, &euro;/MWh):
+    </p>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle text-center trade-numbers">
+            <thead>
+            <tr><th>Mon 9</th><th>Tue 10</th><th>Wed 11</th><th>Thu 12</th><th>Fri 13</th><th>Sat 14</th><th>Sun 15</th><th>Week</th></tr>
+            </thead>
+            <tbody>
+            <tr><td>99.59</td><td>149.93</td><td>266.54</td><td><strong>395.34</strong></td><td>178.47</td><td>101.23</td><td>46.85</td><td><strong>176.85</strong></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>
+        The highest hourly price was <strong>936.28&nbsp;&euro;/MWh</strong> on Thursday,
+        12 December, from 17:00 to 18:00. For comparison: the summer week of 10 to 16 June 2024
+        averaged 63.96&nbsp;&euro;/MWh, with negative prices down to &minus;80.01&nbsp;&euro;/MWh on
+        the weekend.
+    </p>
+    <p><strong>a) With a week future (the "perfect" instrument).</strong>
+        Assume you had bought one base future for that week before it started, at
+        130&nbsp;&euro;/MWh (assumed). It settles at the week's average spot price,
+        176.85&nbsp;&euro;/MWh. One week contract covers 1&nbsp;MW &times; 168&nbsp;h =
+        168&nbsp;MWh, so the gain is (176.85 &minus; 130) &times; 168 =
+        <strong>7,870.80&nbsp;&euro;</strong>. Had the wind come back and the week settled at
+        80&nbsp;&euro;/MWh, the loss would have been 8,400&nbsp;&euro;. This is what
+        professional traders do, and it is not available to a private investor.
+    </p>
+    <p><strong>b) With a Mini Future on the quarter future (what you can actually buy).</strong>
+        Retail Mini Futures track the <em>next</em> quarter to mature. In December 2024 that was
+        the contract for January to March 2025. The December week was not part of its delivery
+        period at all, so it could only move it indirectly, by changing what traders expected
+        for the winter and through gas prices. Even if the week had been part of the quarter,
+        the effect would be small: an unexpected 46.85&nbsp;&euro;/MWh over 168 of the roughly
+        2,160 hours of a quarter raises the quarter average by only about
+        3.6&nbsp;&euro;/MWh. Lesson: <strong>a single Dunkelflaute is a weather event; the
+        products you can buy are bets on seasons and fuel prices.</strong>
+    </p>
+
+    <h4>Example 2: how a Mini Future reacts</h4>
+    <p>
+        Vontobel's own example: the quarter future is at 100&nbsp;&euro;/MWh and a long Mini Future
+        has a strike of 80. The certificate is worth (100 &minus; 80) &times; ratio, and its
+        leverage is 100 / 20 = 5. We assume a ratio of 0.1 and a stop-loss level of 82.
+    </p>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle trade-numbers">
+            <thead>
+            <tr><th>Quarter future</th><th>Certificate value</th><th>Change</th></tr>
+            </thead>
+            <tbody>
+            <tr><td>100 &euro;/MWh (start)</td><td>2.00 &euro;</td><td>&ndash;</td></tr>
+            <tr><td>110 &euro;/MWh (+10&nbsp;%)</td><td>3.00 &euro;</td><td>+50&nbsp;%</td></tr>
+            <tr><td>90 &euro;/MWh (&minus;10&nbsp;%)</td><td>1.00 &euro;</td><td>&minus;50&nbsp;%</td></tr>
+            <tr><td>82 &euro;/MWh (&minus;18&nbsp;%)</td><td>stopped out, small or zero residual value</td><td>about &minus;100&nbsp;%</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>
+        On top of that, the strike rises every day by the financing costs. With, say,
+        5&nbsp;% a year (assumed), a strike of 80 grows by about 0.33&nbsp;&euro;/MWh a month. After
+        three months with an unchanged future, the long certificate has lost about 1&nbsp;&euro;/MWh
+        &times; 0.1 = 0.10&nbsp;&euro;, or 5&nbsp;% of its value.
+    </p>
+
+    <h4>Example 3: how big is a household?</h4>
+    <p>
+        A one-person flat uses about 1,500 to 2,000&nbsp;kWh a year. The HVB year certificate has
+        a ratio of 0.001, so one certificate stands for about 1&nbsp;kWh of baseload in 2027.
+        Matching 2,000&nbsp;kWh would take 2,000 certificates, about 300&nbsp;&euro; at the
+        November 2026 quote. Compare that with one EEX year future: 8,760,000&nbsp;kWh, the
+        consumption of more than 4,000 such households. If your power is included in the rent,
+        a price rise hits your landlord first, so there is nothing to hedge until your rent or
+        flat-rate changes.
+    </p>
+
+    <h4>Example 4: tax on a gain</h4>
+    <p>
+        You sell certificates with a gain of 1,500&nbsp;&euro; and have no other capital income
+        this year. 1,000&nbsp;&euro; is covered by the saver's allowance; the remaining
+        500&nbsp;&euro; is taxed at 25&nbsp;% = 125.00&nbsp;&euro;, plus 5.5&nbsp;% solidarity
+        surcharge on that = 6.88&nbsp;&euro;. Total: <strong>131.88&nbsp;&euro;</strong> (more with
+        church tax). A German broker withholds this automatically.
+    </p>
+
+    <hr>
+
+    <h2 class="text-muted fw-bolder" id="dunkelflaute">13) Using this site's Dunkelflaute data for a trading view</h2>
     <p>
         This site's data can help you understand <em>why</em> the price moves. Some things to
         look at before forming a view:
@@ -392,6 +584,17 @@
             the coming days. Those move day and week contracts, which retail products rarely
             track. A forecast of a Dunkelflaute next week is not a reason to buy a certificate
             on next year's contract.</li>
+        <li><strong>Measure what past Dunkelflauten did to prices.</strong> In the Dunkelflauten
+            Cost Approximation chart on the home page, put "Average Price during Week Before DF"
+            on one axis and "Average Price during DF" on the other, or colour the bubbles by
+            "Average Relative Price Increase during Dunkelflaute". This shows how much prices
+            typically rose during an event compared with the week before, and how short most
+            events are compared with a quarter (see <a href="#examples">example 1</a>). The <a href="{{ url_for('usage') }}">usage
+            page</a> explains the search settings.</li>
+        <li><strong>Watch the evening hours.</strong> The highest prices in a Dunkelflaute fall
+            on weekday evenings between 17:00 and 19:00, when demand is high and solar is gone.
+            Switch the time-series chart to hourly resolution to see this. It matters for peak
+            contracts and for dynamic tariffs.</li>
         <li><strong>Others see the same data.</strong> Weather forecasts are public, and
             professional traders use better models and faster data. Any edge for a private
             person is small at best.</li>
@@ -399,8 +602,7 @@
 
     <hr>
 
-    <!-- 12 -->
-    <h2 class="text-muted fw-bolder" id="risks">12) Risk checklist</h2>
+    <h2 class="text-muted fw-bolder" id="risks">14) Risk checklist</h2>
     <p>Before you place a trade, you should be able to answer each of these:</p>
     <ol>
         <li>Which contract exactly does my product track (Base or Peak, month, quarter or year)?</li>
@@ -414,11 +616,16 @@
 
     <hr>
 
-    <!-- 13 -->
-    <h2 class="text-muted fw-bolder" id="sources">13) Sources</h2>
+    <h2 class="text-muted fw-bolder" id="sources">15) Sources</h2>
     <ul class="trade-sources">
         <li>EEX: <a href="https://www.eex.com/en/markets/power/german-power-markets" target="_blank" rel="noopener">German Power Markets</a>
             and <a href="https://www.eex.com/en/markets/power/power-futures" target="_blank" rel="noopener">Power Futures</a> (contract details)</li>
+        <li>UniCredit / onvista: <a href="https://www.onvista.de/derivate/Index-Zertifikate/246155747-HC66MN-DE000HC66MN5" target="_blank" rel="noopener">Open-end certificate on the Phelix DE Base Year Future 2027 (HC66MN)</a></li>
+        <li>Vontobel: <a href="https://markets.vontobel.com/de-ch/blog/59209/strom-und-gas-die-energiekrise-ist-vorbei" target="_blank" rel="noopener">Strom und Gas: Ist die Energiekrise wirklich vorbei?</a> (6 May 2024)</li>
+        <li>Vontobel via OptionsscheineCheck: <a href="https://www.optionsscheinecheck.de/artikel/analysen-oc-3017201.html" target="_blank" rel="noopener">Mini Futures on the power future, launch examples</a> (17 October 2023)</li>
+        <li>Börse Frankfurt: <a href="https://www.boerse-frankfurt.de/zertifikat/de000vd5s267-mini-future-auf-eex-german-power-base-quarter" target="_blank" rel="noopener">Mini Future on EEX German Power Base Quarter (DE000VD5S267)</a></li>
+        <li>Interactive Brokers: <a href="https://www.interactivebrokers.co.uk/de/pricing/commissions-futures.php" target="_blank" rel="noopener">Futures commissions by exchange</a></li>
+        <li>EEX: <a href="https://www.eex.com/en/market-data/market-data-hub" target="_blank" rel="noopener">Market Data Hub</a> (settlement prices)</li>
         <li>Vontobel: <a href="https://markets.vontobel.com/de-de/blog/40120/mit-spannung-erwartet-mini-futures-auf-den-strompreis" target="_blank" rel="noopener">Mini-Futures auf den Strompreis</a> (17 October 2023)</li>
         <li>BaFin: <a href="https://www.bafin.de/SharedDocs/Veroeffentlichungen/DE/Meldung/2026/meldung_2026_06_16_turbo_zertifikate_mehr_transparenz.html" target="_blank" rel="noopener">Turbo-Zertifikate: Mehr Transparenz</a> (16 June 2026)</li>
         <li>ESMA: <a href="https://www.esma.europa.eu/sites/default/files/2025-11/ESMA35-243228190-7836_ESMA_opinion_on_BaFin_PI_measures_on_turbos.pdf" target="_blank" rel="noopener">Opinion on BaFin's product intervention on turbos</a> (24 November 2025)</li>
@@ -430,7 +637,7 @@
         <li><a href="https://www.gesetze-im-internet.de/enwg_2005/__41a.html" target="_blank" rel="noopener">§ 41a EnWG</a> (dynamic tariffs)</li>
         <li>BDEW: <a href="https://www.bdew.de/online-magazin-zweitausend50/vertrauen/dynamische-stromtarife-energiekosten-senken/" target="_blank" rel="noopener">Dynamische Stromtarife: Für wen sie sich lohnen</a> (November 2026)</li>
         <li>WisdomTree: <a href="https://www.wisdomtree.eu/en-gb/products/ucits-etfs-unleveraged-etps/commodities/wisdomtree-carbon" target="_blank" rel="noopener">WisdomTree Carbon</a> (product page)</li>
-        <li>Market data: <a href="https://www.smard.de/" target="_blank" rel="noopener">SMARD</a> (Bundesnetzagentur)</li>
+        <li>Market data: <a href="https://www.smard.de/" target="_blank" rel="noopener">SMARD</a> (Bundesnetzagentur), day-ahead prices used in the examples</li>
     </ul>
 
 </div>

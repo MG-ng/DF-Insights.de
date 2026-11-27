@@ -326,3 +326,11 @@ For the Tom Selection Groups
 .trade-sources li {
     margin-bottom: 0.3rem;
 }
+
+.trade-steps li {
+    margin-bottom: 0.6rem;
+}
+
+.trade-numbers {
+    max-width: 720px;
+}
