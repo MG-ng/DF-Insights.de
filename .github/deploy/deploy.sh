@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Server-side deploy script for df-insights.de.
 #
+# Runs as the dedicated `deploy` user, which owns the checkout and the virtualenv.
 # GitHub Actions connects over SSH with a key that may only run this script
 # (forced command in ~/.ssh/authorized_keys, see .github/deploy/SETUP.md) and
-# passes the commit to deploy as the SSH command, e.g. `ssh ubuntu@server <sha>`.
+# passes the commit to deploy as the SSH command, e.g. `ssh deploy@server <sha>`.
 #
 # Install a copy OUTSIDE the app checkout, so a deploy never rewrites the script
 # while it runs:  install -m 755 .github/deploy/deploy.sh ~/bin/df-insights-deploy
@@ -13,17 +14,19 @@
 # with the new version. If any step after the checkout fails, it rolls back to
 # the previous commit and exits non-zero, so the GitHub job fails.
 set -euo pipefail
+umask 022  # files must stay readable for the web server's own user
 
 # Settings. Override them in ~/.config/df-insights-deploy.env instead of editing this file.
-APP_ROOT="${HOME}/work"                     # git checkout; holds .env and work/app.py
-VENV="${APP_ROOT}/.venv"                    # virtualenv the service runs with
-SERVICE="webapp"                            # Gunicorn systemd unit
-HEALTH_URL="http://127.0.0.1:5000/about"    # page served by Gunicorn directly, bypassing nginx
-BRANCH="main"
-RESTART_CMD=""                              # default: sudo -n systemctl restart $SERVICE
+# The config file is read first, so values derived from APP_ROOT follow an overridden APP_ROOT.
 CONFIG_FILE="${HOME}/.config/df-insights-deploy.env"
 # shellcheck source=/dev/null
 [[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
+APP_ROOT="${APP_ROOT:-/srv/df-insights}"                # git checkout; holds .env and work/app.py
+VENV="${VENV:-${APP_ROOT}/.venv}"                       # virtualenv the service runs with
+SERVICE="${SERVICE:-webapp}"                            # Gunicorn systemd unit
+HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:5000/about}" # page served by Gunicorn directly, bypassing nginx
+BRANCH="${BRANCH:-main}"
+RESTART_CMD="${RESTART_CMD:-}"                          # default: sudo -n systemctl restart $SERVICE
 restart_service() {
 	if [[ -n "$RESTART_CMD" ]]; then bash -c "$RESTART_CMD"; else sudo -n systemctl restart "$SERVICE"; fi
 }

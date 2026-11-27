@@ -50,7 +50,11 @@ for header in strict-transport-security content-security-policy x-content-type-o
 	if grep -q "^${header}:" <<<"$headers"; then
 		pass "header ${header}"
 	else
-		echo "::warning::missing security header: ${header}"
+		if [[ "$header" == "content-security-policy" ]] && grep -q "^content-security-policy-report-only:" <<<"$headers"; then
+			echo "::warning::content-security-policy is in report-only mode (set CSP_ENFORCE=true in .env to enforce it)"
+		else
+			echo "::warning::missing security header: ${header}"
+		fi
 	fi
 done
 if grep -qE '^server: nginx/[0-9]' <<<"$headers"; then
