@@ -11,6 +11,7 @@ from Helper import REGION_LIST, FILTER, FilterTranslations, FLAG, Resolution, un
 from psqlDatabase.QueryComplex import get_timeseries, get_daily_price_ohlc
 from psqlDatabase.dunkelflauteSearch import get_dunkelflaute_matches, get_dunkelflaute_timeseries, \
 	getEnrichedDunkelflauten
+from prediction import live as dunkelflaute_outlook
 
 # TODO: Change Server Configuration Path
 
@@ -303,6 +304,27 @@ def forecast():
 		print( f"Forecast: unexpected Open-Meteo response: {error!r}" )
 		return "API Error", 502
 	return { "REPIs": repis }
+
+@app.route('/dunkelflaute-outlook')
+def dunkelflaute_outlook_route():
+	"""15-day Dunkelflaute probabilities from three weather ensembles (see prediction/live.py), cached for 6 hours."""
+	try:
+		outlook = dunkelflaute_outlook.cached_outlook()
+	except (requests.RequestException, RuntimeError, ValueError, KeyError) as error:
+		print( f"Dunkelflaute outlook failed: {error!r}" )
+		return "Forecast data not available", 502
+	response = app.response_class( json.dumps( outlook ), mimetype = 'application/json' )
+	response.headers[ 'Cache-Control' ] = 'public, max-age=600'
+	return response
+
+
+@app.route('/dunkelflaute-backtest')
+def dunkelflaute_backtest():
+	"""Backtest scores of the Dunkelflaute forecast (written by prediction/train.py)."""
+	response = send_from_directory( app.root_path, 'prediction/backtest.json', mimetype = 'application/json' )
+	response.headers[ 'Cache-Control' ] = 'public, max-age=3600'
+	return response
+
 
 if __name__ == '__main__':
 	app.run(host=APP_HOST, port=APP_PORT, debug=APP_DEBUG)

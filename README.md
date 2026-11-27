@@ -16,6 +16,8 @@ as interactive charts.
 - **Bubble chart** to compare Dunkelflauten by duration, intensity and other metrics.
 - **Weather map** (embedded from ventusky.com) to look at the weather patterns behind an event.
 - **Forecast view** based on Open-Meteo forecasts.
+- **Dunkelflaute outlook** on `/prediction`: 15-day probabilities from three weather ensembles
+  (ECMWF IFS, ECMWF AIFS, NOAA GEFS), weather regime outlook and an honest backtest.
 
 ## Project layout
 
@@ -28,6 +30,7 @@ work/
   computedViews.py        Builds the materialized views used by the website
   Helper.py               Filters, regions and resolutions shared by app and imports
   psqlDatabase/           Schema creation, SMARD/Open-Meteo import and SQL queries
+  prediction/             Dunkelflaute forecast: data download, training/backtest, live ensemble outlook
   templates/              Jinja2 pages (index, features, usage, prediction, about)
   static/                 JavaScript, CSS and images
   requirements-dev.txt    Tools for tests and CI checks (pytest, ruff, pip-audit, bandit)
@@ -139,6 +142,31 @@ Notes:
   sudo chown -R "$USER":"$(id -gn)" work/.cache
   .venv/bin/python -u work/databaseSetupAll.py --start-at forecast-weather
   ```
+
+## Dunkelflaute forecast
+
+`/prediction` shows a 15-day Dunkelflaute outlook. The code is in `work/prediction/`:
+
+| File | Purpose |
+|------|---------|
+| `features.py` | Model points and hourly weather to daily features (turbine power curve applied hourly) |
+| `model.py` | Energy model at runtime: weather features to wind, solar, demand and renewable share |
+| `live.py` | Fetches the ECMWF IFS, ECMWF AIFS and NOAA GEFS ensembles (Open-Meteo), cached 6 hours |
+| `train.py` | Fits the model, runs the backtest, writes `model.json` and `backtest.json` |
+| `fetch_training_data.py` | Downloads SMARD, ERA5, sea level pressure and archived forecasts to `prediction/data/` |
+
+The website only needs the committed `model.json` and `backtest.json`, no database. To retrain
+with the newest data (takes about an hour, mostly Open-Meteo rate limits; the downloaded data is
+not committed):
+
+```shell
+cd work
+python -m prediction.fetch_training_data
+python -m prediction.train
+```
+
+Open-Meteo's free tier allows about 10,000 weighted requests per day. A full download uses most
+of that; if it stops with a rate limit, run it again the next day: finished parts are cached.
 
 ## Running the app
 
