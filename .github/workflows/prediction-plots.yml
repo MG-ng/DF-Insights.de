@@ -1,0 +1,122 @@
+# Rebuilds the correlation heatmaps of the /prediction page from the public data sources.
+#
+# Builds a throwaway PostgreSQL database with the data the Dunkelflauten views need
+# (SMARD quarter-hour data for DE from autumn 2018 on and the historical Open-Meteo
+# weather), creates the views and runs work/predictionPlots.py. The images are
+# committed back:
+#   - on a pull request from this repository: to the pull request's branch
+#   - when started by hand: to the branch automation/prediction-plots (open a PR from it)
+# The production server needs nothing for this, the images ship with the next deploy.
+name: Prediction plots
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - work/predictionPlots.py
+      - work/requirements.txt
+      - work/tests/requirements.txt
+      - .github/workflows/prediction-plots.yml
+      - .github/prediction-plots/**
+
+permissions:
+  contents: write # commits the regenerated images
+
+concurrency:
+  group: prediction-plots-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  # SMARD buckets before this are skipped. The Dunkelflauten views start on 1 October 2018
+  # and compare with the week before, so this only drops data the plots never use.
+  SMARD_FROM_MS: "1536537600000" # 10 September 2018 00:00 UTC
+
+defaults:
+  run:
+    working-directory: work
+
+jobs:
+  plots:
+    name: Regenerate /prediction heatmaps
+    # Only for branches of this repository; a fork's pull request gets no write token
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: plots
+          POSTGRES_PASSWORD: plots # throwaway container, not a real secret
+          POSTGRES_DB: smard_plots
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U plots -d smard_plots"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: smard_plots
+      DB_USER: plots
+      DB_PASSWORD: plots
+      PYTHONPATH: ${{ github.workspace }}/work:${{ github.workspace }}/work/psqlDatabase
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install requirements
+        run: pip install -r tests/requirements.txt
+
+      - name: Create the schema
+        run: python psqlDatabase/databaseSetup.py
+
+      - name: Import SMARD (DE, quarter-hour, only the columns the views read)
+        run: python ../.github/prediction-plots/import_smard.py
+
+      - name: Import historical Open-Meteo weather
+        run: python psqlDatabase/openMeteoDataInsertion.py
+
+      - name: Create the views
+        run: |
+          python - <<'EOF'
+          import sys
+          from computedViews import create_computed_view
+          from config import DB_PARAMS
+          from Helper import VIEW_NAME_RE_SHARE_EXT_TRADE, VIEW_NAME_HISTORICAL_WEATHER_AGG, VIEW_NAME_DUNKELFLAUTEN_STATS
+          from predictionPlots import THRESHOLDS
+          from psqlDatabase.viewsSQL import re_share_import_view_sql, historical_weather_agg_view_sql, dunkelflauten_stats_view_sql
+
+          views = [(VIEW_NAME_RE_SHARE_EXT_TRADE, re_share_import_view_sql),
+                   (VIEW_NAME_HISTORICAL_WEATHER_AGG, historical_weather_agg_view_sql)]
+          views += [(VIEW_NAME_DUNKELFLAUTEN_STATS + str(t), dunkelflauten_stats_view_sql(t / 100)) for t in THRESHOLDS]
+          for name, query in views:
+              if not create_computed_view(DB_PARAMS, name, query):
+                  sys.exit(f"View {name} failed")
+          EOF
+
+      - name: Draw the heatmaps
+        run: python predictionPlots.py
+
+      - name: Commit the images
+        working-directory: .
+        env:
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref || 'automation/prediction-plots' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add work/static/images/plots
+          if git diff --cached --quiet; then
+            echo "Images unchanged."
+            exit 0
+          fi
+          git commit -m "Regenerate the /prediction correlation heatmaps" \
+                     -m "Built by the Prediction plots workflow, run ${GITHUB_RUN_ID}."
+          git push origin "HEAD:refs/heads/${TARGET_BRANCH}" ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }}

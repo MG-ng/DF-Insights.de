@@ -3,7 +3,6 @@
 console.log("Executing Search Dunkelflaute…")
 
 import { timeChart, dunkelflauteColor, Match, timeShares } from "./setupHome.js"
-import { priceCandles } from "./priceCandles.js"
 import {loadingToast, randomHSL, toast, unix_time_duration} from "./script.js"
 import {closeLoadingToast, dataResolution, toasts} from "./flask_variables.js"
 window.search_dunkelflaute = search_dunkelflaute  // needed for the button onclick
@@ -16,7 +15,6 @@ function search_dunkelflaute() {
     if (!input) { return }
 
     timeChart.removeBands()
-    priceCandles.removeBands()
 
     // Change the Search Button to Loading...
     var btn = document.getElementById('btn_search_dunkelflaute')
@@ -39,7 +37,6 @@ function search_dunkelflaute() {
 
                 const band = match.plotBand()
                 timeChart.addBand(band.from, band.to, band.color)
-                priceCandles.addBand(band.from, band.to, band.color)
             }
 
             toast("Found " + data["series"].length + " periods matching your criteria.")
