@@ -15,6 +15,7 @@ on:
     paths:
       - work/predictionPlots.py
       - .github/workflows/prediction-plots.yml
+      - .github/prediction-plots/**
 
 permissions:
   contents: write # commits the regenerated images
@@ -39,7 +40,7 @@ jobs:
     # Only for branches of this repository; a fork's pull request gets no write token
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 120
     services:
       postgres:
         image: postgres:16
@@ -75,26 +76,8 @@ jobs:
       - name: Create the schema
         run: python psqlDatabase/databaseSetup.py
 
-      - name: Import SMARD (DE, quarter-hour, from autumn 2018)
-        run: |
-          python - <<'EOF'
-          import os
-          import smardDataInsertion as smard
-          from Helper import Resolution
-
-          from_ms = int(os.environ["SMARD_FROM_MS"])
-          fetch = smard.fetch_json
-
-          def recent_buckets_only(url, allow_not_found=False):
-              data = fetch(url, allow_not_found)
-              if data and "timestamps" in data:
-                  data["timestamps"] = [t for t in data["timestamps"] if t >= from_ms]
-              return data
-
-          smard.fetch_json = recent_buckets_only
-          smard.Resolution = [Resolution.QUARTERHOUR]  # the Dunkelflauten views read only quarter-hours
-          smard.main()
-          EOF
+      - name: Import SMARD (DE, quarter-hour, only the columns the views read)
+        run: python ../.github/prediction-plots/import_smard.py
 
       - name: Import historical Open-Meteo weather
         run: python psqlDatabase/openMeteoDataInsertion.py
