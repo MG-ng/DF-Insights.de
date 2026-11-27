@@ -14,6 +14,8 @@ on:
   pull_request:
     paths:
       - work/predictionPlots.py
+      - work/requirements.txt
+      - work/tests/requirements.txt
       - .github/workflows/prediction-plots.yml
       - .github/prediction-plots/**
 
