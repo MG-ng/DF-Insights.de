@@ -236,6 +236,10 @@ def usage():
 def prediction():
 	return render_template('prediction.html', title='prediction')
 
+@app.route('/trade')
+def trade():
+	return render_template('trade.html', title='Trading the Power Price')
+
 @app.route('/about')
 def about():
 	return render_template('about.html', title='About Us')

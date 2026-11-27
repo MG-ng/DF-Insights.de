@@ -301,3 +301,28 @@ For the Tom Selection Groups
     width: 6.5cm;
     z-index: 1;
 }
+
+/* Trading guide (/trade) */
+.trade-guide h2 {
+    margin-top: 1.5rem;
+}
+
+.trade-guide h4 {
+    margin-top: 1rem;
+    font-size: 1.15rem;
+}
+
+.trade-disclaimer {
+    background-color: #fff3cd;
+    border: 1px solid #ffe69c;
+    color: #664d03;
+    border-radius: 6px;
+}
+
+.trade-guide table {
+    font-size: 0.95rem;
+}
+
+.trade-sources li {
+    margin-bottom: 0.3rem;
+}

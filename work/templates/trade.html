@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header my-5">
+    <h1>Trading the German Electricity Price</h1>
+    <p class="lead text-muted">
+        A practical guide for a private person in Germany: no company, no power plant,
+        and no electricity contract of your own (for example a tenant whose power is part of the rent).
+    </p>
+</div>
+
+<div class="content-section trade-guide mb-5">
+
+    <div class="alert trade-disclaimer" role="note">
+        <strong>Not financial, tax or legal advice.</strong>
+        This page explains how the market works and which products exist. It does not recommend
+        buying or selling anything. Leveraged products can lose their whole value within hours.
+        Rules and products change; check the linked primary sources and your broker's documents
+        before you act. Last reviewed: November 2026.
+    </div>
+
+    <h3>Contents</h3>
+    <ol>
+        <li><a href="#tldr">The short version</a></li>
+        <li><a href="#market">How the German power price is made</a></li>
+        <li><a href="#options">Your options at a glance</a></li>
+        <li><a href="#certificates">Exchange-traded certificates on the power price</a></li>
+        <li><a href="#futures">EEX power futures</a></li>
+        <li><a href="#cfd">CFDs</a></li>
+        <li><a href="#proxies">Indirect exposure: utilities, carbon, gas</a></li>
+        <li><a href="#betting">Betting and prediction markets</a></li>
+        <li><a href="#physical">The physical route: tariffs and balcony solar</a></li>
+        <li><a href="#tax">Taxes in Germany</a></li>
+        <li><a href="#dunkelflaute">Using Dunkelflaute data for a trading view</a></li>
+        <li><a href="#risks">Risk checklist</a></li>
+        <li><a href="#sources">Sources</a></li>
+    </ol>
+
+    <hr>
+
+    <!-- 1 -->
+    <h2 class="text-muted fw-bolder" id="tldr">1) The short version</h2>
+    <ul>
+        <li>You <strong>cannot buy electricity itself</strong> as an investment, and there is
+            no plain, unleveraged ETF or ETC on the German power price.</li>
+        <li>The most realistic route for a private investor is a
+            <strong>leveraged certificate (Mini Future or Turbo)</strong> on an
+            <strong>EEX German Power future</strong>, bought through a normal German securities
+            account (Depot). Vontobel, for example, issued long and short Mini Futures on the
+            EEX German Power Base Quarter Future in 2023.</li>
+        <li><strong>Direct EEX futures</strong> are built for utilities and traders: one
+            contract is 1&nbsp;MW for every hour of the delivery period, so a single year
+            contract covers about 8,760&nbsp;MWh. Very few retail brokers offer them.</li>
+        <li><strong>Betting on the power price</strong> on Polymarket or similar sites is not an
+            option from Germany: the Joint Gambling Authority (GGL) says such bets cannot be
+            licensed and taking part can be a criminal offence.</li>
+        <li>Gains are taxed with the flat capital gains tax (Abgeltungsteuer, 25&nbsp;% plus
+            solidarity surcharge and possibly church tax). The old 20,000&nbsp;&euro; cap on
+            offsetting losses from derivatives was abolished by the 2024 Annual Tax Act.</li>
+    </ul>
+
+    <hr>
+
+    <!-- 2 -->
+    <h2 class="text-muted fw-bolder" id="market">2) How the German power price is made</h2>
+    <p>
+        Before you trade it, it helps to know which "power price" you are actually trading.
+        There are two layers:
+    </p>
+    <h4>Spot market (EPEX SPOT)</h4>
+    <p>
+        Every day at noon, the <strong>day-ahead auction</strong> sets one price for each
+        quarter hour of the next day for the German-Luxembourg bidding zone. This is the price
+        you see on the home page of this site, published by SMARD. It swings a lot: it can
+        be negative on a sunny, windy Sunday and several hundred euros per MWh in a cold,
+        windless evening, exactly the Dunkelflaute this site is about.
+        Private persons cannot trade on EPEX SPOT; membership is for companies.
+    </p>
+    <h4>Futures market (EEX)</h4>
+    <p>
+        The <strong>EEX German Power Future</strong> (often still called "Phelix DE") is a
+        financial contract on the <em>average</em> day-ahead price over a future delivery
+        period: a day, weekend, week, month, quarter or year. EEX calls it the most liquid
+        financial power future in Europe. Two load profiles are traded:
+    </p>
+    <ul>
+        <li><strong>Base</strong>: every hour of the delivery period.</li>
+        <li><strong>Peak</strong>: weekdays from 8:00 to 20:00.</li>
+    </ul>
+    <p>
+        The futures price is the market's <em>expectation</em> of the future average spot price.
+        That matters: a Dunkelflaute next Tuesday moves the day and week contracts strongly, but
+        it barely moves a contract for next year. Almost every retail product refers to a
+        quarter or year future, so it reacts to the long-term story (gas and carbon prices,
+        power plant capacity, expansion of renewables, policy) much more than to the weather
+        of the coming days.
+    </p>
+
+    <hr>
+
+    <!-- 3 -->
+    <h2 class="text-muted fw-bolder" id="options">3) Your options at a glance</h2>
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead>
+            <tr>
+                <th>Route</th>
+                <th>Tracks the power price?</th>
+                <th>Access for a private person</th>
+                <th>Can you lose more than you put in?</th>
+                <th>Main catch</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>Mini Future / Turbo on an EEX power future</td>
+                <td>Yes, on a quarter or year future</td>
+                <td>Normal Depot, if an issuer has products listed</td>
+                <td>No (total loss at the knock-out)</td>
+                <td>Leverage, knock-out, few products, wide spreads</td>
+            </tr>
+            <tr>
+                <td>EEX futures directly</td>
+                <td>Yes, best fit</td>
+                <td>Hard: few brokers, large contracts</td>
+                <td>Yes, margin calls are possible</td>
+                <td>8,760&nbsp;MWh per year contract</td>
+            </tr>
+            <tr>
+                <td>CFD</td>
+                <td>Only if a provider lists power</td>
+                <td>Rarely offered</td>
+                <td>No (EU negative balance protection)</td>
+                <td>Leverage up to 10:1, financing costs</td>
+            </tr>
+            <tr>
+                <td>Utility shares or ETFs</td>
+                <td>Loosely</td>
+                <td>Easy</td>
+                <td>No</td>
+                <td>Company and stock market risk</td>
+            </tr>
+            <tr>
+                <td>Carbon (EUA) ETC</td>
+                <td>Indirectly, as a cost driver</td>
+                <td>Easy</td>
+                <td>No</td>
+                <td>It's a carbon price, not a power price</td>
+            </tr>
+            <tr>
+                <td>Prediction markets</td>
+                <td>Depends on the market</td>
+                <td>Not legal from Germany</td>
+                <td>No</td>
+                <td>Possible criminal liability, no enforceable payout</td>
+            </tr>
+            <tr>
+                <td>Dynamic tariff</td>
+                <td>Yes, your own bill follows spot</td>
+                <td>Needs your own contract and a smart meter</td>
+                <td>Higher bills in expensive hours</td>
+                <td>Not possible if power comes with the rent</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <hr>
+
+    <!-- 4 -->
+    <h2 class="text-muted fw-bolder" id="certificates">4) Exchange-traded certificates on the power price</h2>
+    <p>
+        Banks issue <strong>leverage certificates</strong> (Hebelprodukte) whose underlying is an
+        EEX German Power future. They are bonds of the issuing bank, traded like a share on
+        German exchanges such as Börse Stuttgart or Börse Frankfurt and through most online
+        brokers. In 2023 Vontobel introduced long and short <strong>Mini Futures on the
+        EEX German Power Base Quarter Future</strong> and called itself the first issuer to do so.
+        HypoVereinsbank's onemarkets brand has also covered the power price in its
+        certificate blog.
+    </p>
+    <h4>How to find them</h4>
+    <ol>
+        <li>Open the product search of an issuer or an exchange and filter by underlying
+            "Strom", "German Power" or "Phelix".</li>
+        <li>Check the exact underlying: which contract (Base or Peak, quarter or year) and how
+            the issuer <strong>rolls</strong> from one contract to the next. A roll can shift the
+            price level of your certificate.</li>
+        <li>Check <strong>leverage, knock-out level and financing costs</strong>. With a
+            Mini Future, the strike is adjusted daily by a financing rate, which costs long
+            holders money every day.</li>
+        <li>Look at the <strong>bid-ask spread</strong> and the trading hours. If the
+            underlying future does not trade, the issuer may widen spreads or stop quoting.</li>
+    </ol>
+    <h4>What you have to know</h4>
+    <ul>
+        <li><strong>Knock-out means total loss.</strong> In August 2022 the German year
+            contract went to nearly 1,000&nbsp;&euro;/MWh and then fell by more than half within
+            weeks. Many leveraged positions would not have survived that on either side.</li>
+        <li><strong>Issuer risk.</strong> A certificate is unsecured debt of the issuer. If the
+            issuer fails, you can lose your money even if your view was right. There is no
+            deposit insurance.</li>
+        <li><strong>New BaFin rules for Turbos.</strong> Since 16 June 2026, BaFin's product
+            intervention for turbo certificates applies to retail investors in Germany: you must
+            pass a short knowledge test at your bank (to be repeated every six months), you see
+            a standard warning that on average 7 of 10 retail clients lose money with turbo
+            certificates, and bonuses for trading them are banned. BaFin found that about three
+            out of four retail traders lost money with turbos.</li>
+        <li><strong>A low-leverage long Mini Future</strong> (leverage close to 1) is the
+            closest thing to a "power price tracker", and some use it as a hedge against rising
+            household power costs. It only works as a hedge if your own bill actually follows
+            the wholesale price, which is rarely true for a tenant whose power is in the rent.</li>
+    </ul>
+
+    <hr>
+
+    <!-- 5 -->
+    <h2 class="text-muted fw-bolder" id="futures">5) EEX power futures</h2>
+    <p>
+        The futures themselves are traded on EEX in Leipzig and cleared by its clearing house
+        ECC, which takes over the counterparty risk. Key facts from EEX:
+    </p>
+    <ul>
+        <li>Delivery rate: <strong>1&nbsp;MW</strong> for each hour of the delivery period.
+            One year contract (base) is about 8,760&nbsp;MWh; one quarter contract about
+            2,160&nbsp;MWh; one month about 720&nbsp;MWh.</li>
+        <li>Tick size: 0.01&nbsp;&euro;/MWh.</li>
+        <li>Trading hours: 8:00 to 18:00 (CET/CEST) on exchange days.</li>
+        <li>Maturities: the next days and weekends, weeks, up to 24 months, 11 quarters and
+            10 years ahead.</li>
+        <li>Settlement: financially against the day-ahead price (cash settlement).</li>
+    </ul>
+    <p>
+        <strong>What this means for you:</strong> at a price of, say, 90&nbsp;&euro;/MWh a
+        single year contract has a face value of roughly 790,000&nbsp;&euro;, and every move of
+        1&nbsp;&euro;/MWh changes your profit or loss by about 8,760&nbsp;&euro;. A month
+        contract is about 12 times smaller, but still moves by about 720&nbsp;&euro; per
+        1&nbsp;&euro;/MWh. Trading needs a broker that is a clearing member at ECC (or uses
+        one), and most German retail brokers do not offer EEX power at all. Ask your broker
+        directly before you open an account for this purpose.
+    </p>
+    <p>
+        Futures can cost more than your deposit: if prices move against you, the broker
+        demands more margin (Nachschuss). BaFin consulted in 2022 on banning futures with
+        margin calls for retail clients; whatever your broker offers, read whether losses can
+        exceed your account balance. Anyone who meets the conditions to be treated as a
+        "professional client" under MiFID II gives up these retail protections.
+    </p>
+
+    <hr>
+
+    <!-- 6 -->
+    <h2 class="text-muted fw-bolder" id="cfd">6) CFDs</h2>
+    <p>
+        A CFD (contract for difference) pays the price change of an underlying without owning it.
+        If a CFD provider lists German power at all, EU and BaFin rules for retail clients apply:
+    </p>
+    <ul>
+        <li>Maximum leverage <strong>10:1</strong> for commodities other than gold.</li>
+        <li>Positions are closed automatically when your margin falls below half of the
+            initial margin.</li>
+        <li><strong>Negative balance protection</strong>: you cannot lose more than the money
+            in your CFD account. CFDs with an obligation to pay more are banned in Germany
+            since 2017.</li>
+        <li>Providers must state how many of their retail clients lose money. In practice this
+            is usually well over half.</li>
+    </ul>
+    <p>
+        Power CFDs are rare. Check that the provider is authorised in the EU (BaFin company
+        database or the regulator of its home country) and what exactly the CFD refers to.
+    </p>
+
+    <hr>
+
+    <!-- 7 -->
+    <h2 class="text-muted fw-bolder" id="proxies">7) Indirect exposure: utilities, carbon, gas</h2>
+    <p>
+        If you want exposure to the forces behind the power price rather than the price itself,
+        ordinary, unleveraged products are available in any Depot:
+    </p>
+    <ul>
+        <li><strong>Utility shares</strong>: generators with a lot of merchant (unhedged)
+            output profit from high wholesale prices. Grid operators earn regulated returns and
+            react much less. Utility ETFs (for example on the MSCI World Utilities index) are
+            dominated by US companies and follow stock markets more than power prices.</li>
+        <li><strong>Carbon (EU emission allowances, EUA)</strong>: the carbon price is part of
+            the cost of every coal and gas power plant and therefore of the German power price.
+            ETCs exist, for example WisdomTree Carbon (ISIN JE00BP2PWW32), which tracks
+            ICE EUA futures through a swap.</li>
+        <li><strong>Natural gas</strong>: gas plants set the German power price in many hours.
+            Gas ETCs exist, but check whether they track European (TTF) or US (Henry Hub) gas;
+            the US price has little to do with German power.</li>
+    </ul>
+    <p>
+        All of these are futures-based or equity products with their own risks (roll costs,
+        issuer risk for ETCs, company risk for shares).
+    </p>
+
+    <hr>
+
+    <!-- 8 -->
+    <h2 class="text-muted fw-bolder" id="betting">8) Betting and prediction markets</h2>
+    <p>
+        Betting on "Will the day-ahead price exceed 300&nbsp;&euro;/MWh next week?" sounds
+        attractive, but from Germany it is not a legal option:
+    </p>
+    <ul>
+        <li>Under the State Treaty on Gambling (GlüStV 2021), only bets on sports and horse
+            races can be licensed. Bets on political, social, economic or other events
+            ("Gesellschaftswetten") cannot.</li>
+        <li>The GGL warned in September 2025 that bets such as those on Polymarket are
+            "nicht erlaubnisfähig und damit illegal", and that taking part is punishable. In
+            August 2026 it repeated that participation from Germany is not allowed and can be
+            a criminal offence (§&nbsp;285 StGB).</li>
+        <li>Polymarket itself lists Germany as a blocked country since August 2026, and using
+            a VPN breaks its terms. Winnings from an unlicensed provider are not legally
+            enforceable.</li>
+    </ul>
+    <p>
+        If you want to test your forecasting skill without money at stake, play-money
+        prediction markets are a legal alternative. Or simply write down your forecast for
+        next week's prices and compare it with the SMARD data on this site.
+    </p>
+
+    <hr>
+
+    <!-- 9 -->
+    <h2 class="text-muted fw-bolder" id="physical">9) The physical route: tariffs and balcony solar</h2>
+    <p>
+        The most direct way for a household to "trade" the spot price is to buy power at it:
+    </p>
+    <ul>
+        <li><strong>Dynamic tariffs</strong>: since 1 January 2025 every supplier in Germany must
+            offer a dynamic tariff to customers with a smart meter (intelligentes Messsystem),
+            §&nbsp;41a EnWG. The energy price then follows the exchange price and can change every
+            quarter hour. You only gain if you can shift consumption (an electric car, a heat
+            pump, a battery) into cheap hours; for a small flat with about 2,000&nbsp;kWh a year
+            the Verbraucherzentrale NRW says it is usually not worth it.</li>
+        <li><strong>As a tenant without your own contract</strong>, this route is closed unless
+            your flat has its own meter and you sign your own supply contract. If your power is
+            part of an all-inclusive rent, your landlord carries the price risk, so you have
+            little to hedge in the first place.</li>
+        <li><strong>Balcony solar (Steckersolargerät)</strong>: up to 800&nbsp;W can be registered
+            in a simplified process, and since October 2024 tenants have a legal claim to
+            their landlord's permission in most cases. It lowers what you buy rather than
+            earning trading profit, and it needs your own meter to pay off.</li>
+    </ul>
+
+    <hr>
+
+    <!-- 10 -->
+    <h2 class="text-muted fw-bolder" id="tax">10) Taxes in Germany</h2>
+    <ul>
+        <li><strong>Flat tax</strong>: gains from certificates, futures, CFDs, ETCs and shares are
+            income from capital (§&nbsp;20 EStG) and taxed at 25&nbsp;% Abgeltungsteuer plus
+            5.5&nbsp;% solidarity surcharge on that tax and, if you are a church member, church
+            tax.</li>
+        <li><strong>Allowance</strong>: the first 1,000&nbsp;&euro; (2,000&nbsp;&euro; for married
+            couples filing jointly) of capital income per year are tax-free. Give your German
+            bank a Freistellungsauftrag.</li>
+        <li><strong>Losses from derivatives</strong>: from 2021 losses from futures, options and
+            CFDs ("Termingeschäfte") could only be offset up to 20,000&nbsp;&euro; a year. The
+            Annual Tax Act 2024 (Jahressteuergesetz 2024) abolished this cap for all open cases,
+            so these losses can again be offset in full against capital gains.</li>
+        <li><strong>Foreign brokers</strong> usually do not withhold German tax. You must declare
+            the gains yourself in Anlage KAP of your tax return.</li>
+        <li><strong>Gambling</strong> winnings are generally not taxed in Germany, but that does
+            not make an unlicensed betting site legal (see section 8).</li>
+    </ul>
+    <p>Ask a tax adviser (Steuerberater) or a Lohnsteuerhilfeverein for your own case.</p>
+
+    <hr>
+
+    <!-- 11 -->
+    <h2 class="text-muted fw-bolder" id="dunkelflaute">11) Using Dunkelflaute data for a trading view</h2>
+    <p>
+        This site's data can help you understand <em>why</em> the price moves. Some things to
+        look at before forming a view:
+    </p>
+    <ul>
+        <li><strong>Seasonality.</strong> Long Dunkelflauten happen almost only between November
+            and February. Use the <a href="{{ url_for('index') }}">Dunkelflaute search</a> to see
+            how often and how long they were in past winters. A cold, windless first quarter is
+            priced into the Q1 future long before January.</li>
+        <li><strong>Residual load drives the price.</strong> Residual load is demand minus wind
+            and solar. When it is high, gas and coal plants set the price, so the price tracks
+            gas and carbon prices. The time-series chart on the home page shows residual load
+            next to the day-ahead price.</li>
+        <li><strong>Weather forecasts move the short end.</strong> The
+            <a href="{{ url_for('prediction') }}">forecast page</a> uses Open-Meteo forecasts for
+            the coming days. Those move day and week contracts, which retail products rarely
+            track. A forecast of a Dunkelflaute next week is not a reason to buy a certificate
+            on next year's contract.</li>
+        <li><strong>Others see the same data.</strong> Weather forecasts are public, and
+            professional traders use better models and faster data. Any edge for a private
+            person is small at best.</li>
+    </ul>
+
+    <hr>
+
+    <!-- 12 -->
+    <h2 class="text-muted fw-bolder" id="risks">12) Risk checklist</h2>
+    <p>Before you place a trade, you should be able to answer each of these:</p>
+    <ol>
+        <li>Which contract exactly does my product track (Base or Peak, month, quarter or year)?</li>
+        <li>How and when does it roll, and what does that cost?</li>
+        <li>At what price is it knocked out, and how far away is that in percent?</li>
+        <li>Can I lose more than my stake? (Futures: yes. Certificates and EU CFDs: no.)</li>
+        <li>Who is the issuer or counterparty, and what happens if they fail?</li>
+        <li>What does the spread cost me on the way in and out?</li>
+        <li>Is this money I can afford to lose completely?</li>
+    </ol>
+
+    <hr>
+
+    <!-- 13 -->
+    <h2 class="text-muted fw-bolder" id="sources">13) Sources</h2>
+    <ul class="trade-sources">
+        <li>EEX: <a href="https://www.eex.com/en/markets/power/german-power-markets" target="_blank" rel="noopener">German Power Markets</a>
+            and <a href="https://www.eex.com/en/markets/power/power-futures" target="_blank" rel="noopener">Power Futures</a> (contract details)</li>
+        <li>Vontobel: <a href="https://markets.vontobel.com/de-de/blog/40120/mit-spannung-erwartet-mini-futures-auf-den-strompreis" target="_blank" rel="noopener">Mini-Futures auf den Strompreis</a> (17 October 2023)</li>
+        <li>BaFin: <a href="https://www.bafin.de/SharedDocs/Veroeffentlichungen/DE/Meldung/2026/meldung_2026_06_16_turbo_zertifikate_mehr_transparenz.html" target="_blank" rel="noopener">Turbo-Zertifikate: Mehr Transparenz</a> (16 June 2026)</li>
+        <li>ESMA: <a href="https://www.esma.europa.eu/sites/default/files/2025-11/ESMA35-243228190-7836_ESMA_opinion_on_BaFin_PI_measures_on_turbos.pdf" target="_blank" rel="noopener">Opinion on BaFin's product intervention on turbos</a> (24 November 2025)</li>
+        <li>BaFin: <a href="https://bafin.de/SharedDocs/Veroeffentlichungen/EN/Pressemitteilung/2019/pm_190731_CFD_Fortfuehrung_Handelsbeschraenkung_en.html" target="_blank" rel="noopener">Restrictions on CFDs for retail investors</a> (July 2019)</li>
+        <li>Reed Smith: <a href="https://www.reedsmith.com/de/perspectives/2022/02/bafin-proposed-ruling-to-prevent-trade-in-futures-with-margin-calls" target="_blank" rel="noopener">BaFin proposed ruling on futures with margin calls</a> (2022)</li>
+        <li>CMS: <a href="https://cms.law/de/deu/legal-updates/verlustverrechnungsbeschraenkung-bei-termingeschaeften-gesetzgeber-schafft-vorschrift-ab" target="_blank" rel="noopener">Verlustverrechnungsbeschränkung bei Termingeschäften: Gesetzgeber schafft Vorschrift ab</a> (October 2024)</li>
+        <li>GGL: <a href="https://www.gluecksspiel-behoerde.de/de/news/ggl-warnt-vor-teilnahme-an-illegalen-gesellschaftswetten" target="_blank" rel="noopener">GGL warnt vor Teilnahme an illegalen Gesellschaftswetten</a> (5 September 2025)</li>
+        <li>GGL: <a href="https://www.gluecksspiel-behoerde.de/de/news/ggl-informiert-ueber-rechtliche-risiken-von-gesellschaftswetten-und-prognosemaerkten" target="_blank" rel="noopener">Rechtliche Risiken von Gesellschaftswetten und Prognosemärkten</a> (13 August 2026)</li>
+        <li><a href="https://www.gesetze-im-internet.de/enwg_2005/__41a.html" target="_blank" rel="noopener">§ 41a EnWG</a> (dynamic tariffs)</li>
+        <li>BDEW: <a href="https://www.bdew.de/online-magazin-zweitausend50/vertrauen/dynamische-stromtarife-energiekosten-senken/" target="_blank" rel="noopener">Dynamische Stromtarife: Für wen sie sich lohnen</a> (November 2026)</li>
+        <li>WisdomTree: <a href="https://www.wisdomtree.eu/en-gb/products/ucits-etfs-unleveraged-etps/commodities/wisdomtree-carbon" target="_blank" rel="noopener">WisdomTree Carbon</a> (product page)</li>
+        <li>Market data: <a href="https://www.smard.de/" target="_blank" rel="noopener">SMARD</a> (Bundesnetzagentur)</li>
+    </ul>
+
+</div>
+{% endblock %}
