@@ -2,7 +2,7 @@
 import pytest
 
 
-@pytest.mark.parametrize( "path", [ "/", "/features", "/usage", "/prediction", "/about" ] )
+@pytest.mark.parametrize( "path", [ "/", "/features", "/usage", "/prediction", "/trade", "/about" ] )
 def test_pages_render( client, path ):
 	response = client.get( path )
 	assert response.status_code == 200
@@ -69,3 +69,10 @@ def test_pages_send_a_content_security_policy( client, path ):
 	assert "frame-ancestors 'none'" in policy
 	assert "object-src 'none'" in policy
 
+
+
+def test_trade_page_is_linked_and_has_disclaimer( client ):
+	assert b'href="/trade"' in client.get( "/" ).data
+	page = client.get( "/trade" ).data
+	assert b"Not financial, tax or legal advice" in page
+	assert b'id="sources"' in page
