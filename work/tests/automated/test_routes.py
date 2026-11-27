@@ -46,15 +46,6 @@ def test_dunkelflaute_routes_reject_invalid_input( client, route, query ):
 	assert client.get( f"{route}?{query}" ).status_code == 404
 
 
-@pytest.mark.parametrize( "query", [
-	"filter=410",  # a valid filter, but not a market price
-	"filter=999999",
-	"region=XX",
-] )
-def test_ohlc_rejects_invalid_input( client, query ):
-	assert client.get( f"/ohlc?{query}" ).status_code == 404
-
-
 @pytest.mark.parametrize( "table", [ "smard_data_collection", "computed_data_dunkelflauten_enriched", "pg_user" ] )
 def test_enriched_df_rejects_unknown_tables( client, table ):
 	assert client.get( f"/enrichedDF?tableName={table}" ).status_code == 404

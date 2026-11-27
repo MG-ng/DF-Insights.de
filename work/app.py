@@ -8,7 +8,7 @@ from flask import Flask, render_template, request, send_from_directory
 from config import APP_DEBUG, APP_HOST, APP_PORT, APP_VERSION, CSP_ENFORCE
 from Helper import REGION_LIST, FILTER, FilterTranslations, FLAG, Resolution, unix_time_duration
 # These imports crash if app.py is in a separate folder, not seeing psqlDatabase/
-from psqlDatabase.QueryComplex import get_timeseries, get_daily_price_ohlc
+from psqlDatabase.QueryComplex import get_timeseries
 from psqlDatabase.dunkelflauteSearch import get_dunkelflaute_matches, get_dunkelflaute_timeseries, \
 	getEnrichedDunkelflauten
 
@@ -179,28 +179,6 @@ def trend():
 		return { 'ordering': [], 'default': {'resolution': None, 'region': None}, 'series': [] }
 	# newRows.sort( key = lambda row: row[ 0 ] )  # Already sorted using SQL
 	return {'ordering': columns, 'default': {'resolution': resolution, 'region': region}, 'series': rows}
-
-
-@app.route('/ohlc')
-def ohlc():
-	"""Daily candles (open, high, low, close) of the hourly day-ahead prices of one market price filter."""
-	filter_id = request.args.get( 'filter', FILTER[ FilterTranslations.inverse[ "Market_Price_GER_LUX" ] ], type = int )
-	if filter_id not in FILTER.values() or not FILTER.inverse[ filter_id ].startswith( "Marktpreis" ):
-		return "Data not available!", 404
-	region = request.args.get( 'region', "DE", type = str )
-	if region not in REGION_LIST:
-		return "Data not available2", 404
-	start_ms = request.args.get( 'startTime', 1000000000000, type = int )  # 9. September 2001
-	end_ms = request.args.get( 'endTime', 2000000000000, type = int )  # 18. May 2033
-	if start_ms < 0 or end_ms <= 0 or start_ms > end_ms or end_ms > 2000000000000:
-		return "Data not available3", 404
-
-	filter_name = FilterTranslations[ FILTER.inverse[ filter_id ] ]
-	rows, columns = get_daily_price_ohlc( region, filter_name, start_ms, end_ms )
-	if not rows:
-		return {'ordering': [], 'name': filter_name, 'series': []}
-	series = [ [ row[0] ] + [ float(value) for value in row[1:] ] for row in rows ]
-	return {'ordering': columns, 'name': filter_name, 'series': series}
 
 
 @app.route('/enrichedDF')
