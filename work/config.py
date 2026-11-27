@@ -50,11 +50,24 @@ APP_PORT = _get_int("APP_PORT", 5000)
 APP_DEBUG = _get_bool("APP_DEBUG", False)
 
 
+VERSION_FILE = PROJECT_ROOT / ".app-version"  # written by .github/deploy/deploy.sh, not tracked by git
+
+
 def _detect_app_version():
-    """Commit the app runs from, shown in the page footer. APP_VERSION in .env wins over git."""
+    """Commit the app runs from, shown in the page footer.
+
+    Order: APP_VERSION (environment or .env), then .app-version (written at deploy
+    time, so the web server's user needs no access to git), then git itself.
+    """
     configured = os.getenv("APP_VERSION", "").strip()
     if configured:
         return configured
+    try:
+        from_file = VERSION_FILE.read_text(encoding="utf-8").strip()
+        if from_file:
+            return from_file
+    except OSError:
+        pass
     try:
         result = subprocess.run(  # nosec B603 B607 # fixed git command, no shell, no user input
             ["git", "-C", str(PROJECT_ROOT), "log", "-1", "--format=%h %cs"],

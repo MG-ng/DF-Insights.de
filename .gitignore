@@ -18,3 +18,4 @@ modules.xml
 dist/
 build/
 .pytest_cache/
+.app-version
