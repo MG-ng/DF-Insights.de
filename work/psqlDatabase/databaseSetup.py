@@ -114,7 +114,7 @@ def insert_optional_data_in_batches( connection_params, table_name, data_rows, d
         ON CONFLICT (unix_timestamp_ms, region, resolution) 
         DO UPDATE SET 
             {data_column} = COALESCE(EXCLUDED.{data_column}, {table_name}.{data_column});
-        """
+        """  # nosec B608 # table and column names come from Helper.py constants, values are bound parameters
 
         # Insert data in batches for better performance
         total_rows = len( data_rows )

@@ -1,5 +1,3 @@
-from typing import Literal
-
 from Helper import FilterTranslations, TABLE_NAME_SMARD, FILTER, WIND_SOLAR_SHARE_ID, RE_SHARE_ID, ELEC_IMPORT_ID, \
 	ELEC_PRICE_CHANGE_ABS_ID, ELEC_PRICE_CHANGE_REL_ID, VIEW_NAME_RE_SHARE_EXT_TRADE, TABLE_NAME_OPEN_METEO, \
 	VIEW_NAME_HISTORICAL_WEATHER_AGG, TABLE_NAME_FORECASTS, WIND_SOLAR_ID, FLAG
@@ -54,7 +52,7 @@ re_share_import_view_sql = f"""
                 AND t.electricity_production_wind_onshore <> {FLAG} 
                 AND t.electricity_production_wind_offshore <> {FLAG} 
                 -- NULL is automatically filtered out by these comparisons
-        """
+        """  # nosec B608 # offline setup SQL built only from module constants, no user input
 
 
 # correctly traceable
@@ -92,13 +90,13 @@ WHERE current_price IS NOT NULL
           ELSE FALSE
     END
 ORDER BY region, unix_timestamp_ms
-"""
+"""  # nosec B608 # offline setup SQL built only from module constants, no user input
 
 
 # Filter quicker dunkelflauten via WHERE duration> on view
 # TODO: Add only solar and wind production?
 # TODO: Add peak price during Dunkelflaute?
-preserve_highlighting = f""
+preserve_highlighting = ""
 def dunkelflauten_stats_view_sql( threshold=0.3 ):
         return f"""
 WITH prices AS (
@@ -305,7 +303,7 @@ WITH prices AS (
                  	AND weather.date<to_timestamp(price_delta.end_time /1000) AND resolution='hour')
                  	AS direct_radiation_avg
         FROM price_delta
-"""
+"""  # nosec B608 # offline setup SQL built only from module constants, no user input
 
 
 # Total: 4 rows, 3 columns as a grid over Germany
@@ -497,7 +495,7 @@ SELECT *, 'day' AS resolution,
 FROM radiation_daily
 NATURAL JOIN wind_daily
 NATURAL JOIN wind_dir_daily
-"""
+"""  # nosec B608 # offline setup SQL built only from module constants, no user input
 
 
 
@@ -598,7 +596,7 @@ SELECT *, -- renewable energy production index
 		
 FROM radiation
 NATURAL JOIN wind
-"""
+"""  # nosec B608 # offline setup SQL built only from module constants, no user input
 
 
 
