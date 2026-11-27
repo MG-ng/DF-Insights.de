@@ -83,7 +83,15 @@ mkdir -p ~/bin
 install -m 755 ~/work/.github/deploy/deploy.sh ~/bin/df-insights-deploy
 ```
 
-Repeat this command whenever `deploy.sh` changes in the repo.
+When `deploy.sh` changes in the repo later, update the installed copy straight
+from `main`. This works even though deploys leave `~/work` on a detached commit,
+where `git pull` refuses to run:
+
+```shell
+git -C ~/work fetch origin main
+git -C ~/work show origin/main:.github/deploy/deploy.sh > /tmp/df-insights-deploy
+install -m 755 /tmp/df-insights-deploy ~/bin/df-insights-deploy
+```
 
 ## 4. On your own computer: create the deploy key
 
