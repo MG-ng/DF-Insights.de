@@ -7,6 +7,112 @@
     <h1>Prediction</h1>
 </div>
 
+<style>
+    .df-block { margin-bottom: 2.5rem; }
+    .df-chart { width: 100%; min-height: 420px; }
+    .df-dot { display: inline-block; width: 0.7em; height: 0.7em; border-radius: 50%; margin-right: 0.4em; vertical-align: baseline; }
+    .df-table { font-size: 0.9rem; }
+    .df-table-wrap { overflow-x: auto; }
+    .df-note { color: #666; font-size: 0.9rem; }
+</style>
+
+<div class="content-section" id="dunkelflaute-outlook">
+    <div class="df-block">
+        <h2>Dunkelflaute outlook for the next 15 days</h2>
+        <p>
+            How likely is a day on which wind, solar and the other renewables cover at most
+            <b class="df-threshold-value">35%</b> of Germany's electricity demand?
+            The forecast runs every member of three global weather ensembles (ECMWF IFS, ECMWF's machine-learning
+            ensemble AIFS and NOAA GEFS, over 130 weather scenarios) through an energy model trained on ten years of
+            SMARD generation data. Bars show the probability, the blue line and band the expected renewable share.
+        </p>
+        <div class="control-group">
+            <label for="df-threshold">Dunkelflaute day = daily renewable share at most</label>
+            <select id="df-threshold" class="form-select" style="max-width: 160px; display: inline-block">
+                <option value="0.25">25%</option>
+                <option value="0.3">30%</option>
+                <option value="0.35" selected>35%</option>
+                <option value="0.4">40%</option>
+                <option value="0.45">45%</option>
+                <option value="0.5">50%</option>
+                <option value="0.55">55%</option>
+            </select>
+        </div>
+        <div id="df-outlook-chart" class="df-chart"></div>
+        <p id="df-outlook-summary">Loading the weather ensembles…</p>
+        <details>
+            <summary>Day-by-day numbers</summary>
+            <div class="df-table-wrap"><table id="df-outlook-table" class="table table-sm df-table"></table></div>
+        </details>
+    </div>
+
+    <div class="df-block">
+        <h3>Which weather regime is coming?</h3>
+        <p>
+            Most Dunkelflauten happen under a few large-scale weather patterns, above all blocking highs over
+            Central Europe or Scandinavia, which calm the wind for days
+            (<a href="https://arxiv.org/abs/2212.04870">Mockert et al. 2023</a>,
+            <a href="https://doi.org/10.1038/nclimate3338">Grams et al. 2017</a>).
+            Each ECMWF member's sea level pressure forecast is sorted into one of seven regimes, learned from ERA5 data
+            with k-means clustering. The legend gives how often each regime brought a Dunkelflaute day in winter.
+        </p>
+        <div id="df-regime-chart" class="df-chart"></div>
+    </div>
+
+    <div class="df-block">
+        <h3>How good is this forecast? Backtest on data the model never saw</h3>
+        <p>
+            The energy model was fitted on 2015 to 2022. Below, it is scored on days after that with forecasts as they
+            were issued at the time (archived ECMWF runs from Open-Meteo), with the error width calibrated on 2024 and
+            the scores computed on 2025 and 2026 only. A Brier skill score of 1 is a perfect forecast, 0 is no better
+            than climatology (the usual rate for the time of year with today's fleet of wind and solar plants),
+            below 0 is worse.
+        </p>
+        <div id="df-skill-chart" class="df-chart"></div>
+        <div class="df-table-wrap"><table id="df-skill-table" class="table table-sm df-table"></table></div>
+        <p class="df-note">
+            Hit rate: share of Dunkelflaute days that got a probability of 50% or more. False alarms: share of those
+            warnings that did not come true. Persistence assumes the situation of the last observed day continues.
+        </p>
+        <h4>Are the probabilities honest? (Reliability, 35% threshold)</h4>
+        <p>If a forecast says 30%, a Dunkelflaute should follow on about 30% of those days: points near the diagonal.</p>
+        <div id="df-reliability-chart" class="df-chart"></div>
+        <h4>Energy model with perfect weather knowledge</h4>
+        <p class="df-note">Daily SMARD values reproduced from ERA5 reanalysis weather, <span id="df-energy-period"></span>.</p>
+        <div class="df-table-wrap"><table id="df-energy-table" class="table table-sm df-table" style="max-width: 520px"></table></div>
+        <h4>Weather regimes and Dunkelflauten (October to March, today's fleet)</h4>
+        <div class="df-table-wrap"><table id="df-regime-table" class="table table-sm df-table"></table></div>
+    </div>
+
+    <div class="df-block">
+        <h3>How it works</h3>
+        <ol>
+            <li><b>Where the plants are.</b> 16 weather points cover the offshore clusters in the North and Baltic Sea,
+                the windy north and east and the solar-heavy south.</li>
+            <li><b>Physics first.</b> Hourly 100 m wind speed goes through a turbine power curve (cut-in 3 m/s,
+                full power from 11.5 m/s, storm shutdown at 25 m/s) before it is averaged to days. Averaging the wind
+                first would hide that output rises with the cube of the wind speed.</li>
+            <li><b>Learned from SMARD.</b> Ridge regressions map these capacity factors, solar radiation and temperature
+                to SMARD's onshore, offshore and solar generation, and calendar (weekdays, holidays, Christmas) plus
+                temperature to demand. A capacity index (actual divided by modelled generation over the last 365 days,
+                extrapolated) follows the growing fleet without needing a plant register.</li>
+            <li><b>Many weathers, one answer.</b> Every ensemble member gives a renewable share per day. Each gets the
+                energy model's own error (measured on held-out years), and the average over all members is the probability.
+                Beyond day 10 the probability is gently blended towards climatology, because ensemble skill fades there.</li>
+            <li><b>Honest scores.</b> Every number above comes from data that was not used for fitting.</li>
+        </ol>
+        <p class="df-note">
+            Data: <a href="https://www.smard.de/">SMARD</a> (Bundesnetzagentur), ERA5 reanalysis and archived/ensemble
+            forecasts via <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0).
+            Code: <code>work/prediction/</code>. Retrain with <code>python -m prediction.fetch_training_data</code> and
+            <code>python -m prediction.train</code>.
+        </p>
+    </div>
+</div>
+
+<hr>
+<h2 class="mt-4">Correlations of past Dunkelflauten</h2>
+
 <div class="content-section">
 
     <i>
@@ -121,6 +227,7 @@ https://utopia.de/ratgeber/dunkelflaute-gibt-es-ein-strom-aus-ohne-wind-und-sonn
     </pre>
 
 </div>
+<script type="module" src="{{ url_for('static', filename='js/dunkelflauteOutlook.js') }}"></script>
 {% endblock %}
 
 

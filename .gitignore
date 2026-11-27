@@ -19,3 +19,4 @@ dist/
 build/
 .pytest_cache/
 .app-version
+work/prediction/data/
