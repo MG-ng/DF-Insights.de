@@ -26,6 +26,7 @@ work/
   config.py               Reads .env (database and server settings)
   databaseSetupAll.py     Runs the full database setup, step by step
   computedViews.py        Builds the materialized views used by the website
+  predictionPlots.py      Draws the correlation heatmaps shown on /prediction
   Helper.py               Filters, regions and resolutions shared by app and imports
   psqlDatabase/           Schema creation, SMARD/Open-Meteo import and SQL queries
   templates/              Jinja2 pages (index, features, usage, prediction, about)
@@ -139,6 +140,21 @@ Notes:
   sudo chown -R "$USER":"$(id -gn)" work/.cache
   .venv/bin/python -u work/databaseSetupAll.py --start-at forecast-weather
   ```
+
+### 5. Prediction heatmaps
+
+The `/prediction` page shows correlation heatmaps of the Dunkelflauten views,
+stored in `work/static/images/plots/` and committed to git so every deploy ships
+them. After the views changed, redraw them (needs `work/tests/requirements.txt`):
+
+```shell
+.venv/bin/python work/predictionPlots.py
+```
+
+Without a local database, start the **Prediction plots** workflow in GitHub
+Actions instead. It imports the needed SMARD and Open-Meteo data into a
+throwaway database, draws the images and pushes them to the branch
+`automation/prediction-plots`, ready for a pull request.
 
 ## Running the app
 
