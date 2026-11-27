@@ -152,3 +152,25 @@ def test_prediction_page_has_the_outlook( client ):
 	page = client.get( "/prediction" ).get_data( as_text = True )
 	assert 'id="df-outlook-chart"' in page
 	assert "js/dunkelflauteOutlook.js" in page
+
+
+def test_cached_outlook_reuses_and_falls_back( monkeypatch, tmp_path ):
+	monkeypatch.setattr( live, "CACHE_FILE", tmp_path / "outlook.json" )
+	monkeypatch.setattr( live, "_cache", { "time": 0.0, "value": None } )
+	calls = []
+
+	def build():
+		calls.append( 1 )
+		return { "days": [ len( calls ) ] }
+	monkeypatch.setattr( live, "build_outlook", build )
+	assert live.cached_outlook() == { "days": [ 1 ] }
+	assert live.cached_outlook() == { "days": [ 1 ] } and len( calls ) == 1  # cached
+	assert ( tmp_path / "outlook.json" ).exists()  # shared with the other workers
+
+	live._cache[ "time" ] -= live.CACHE_SECONDS + 1  # expired: rebuild fails, the last good result is served
+	monkeypatch.setattr( live, "_read_cache_file", lambda: ( 0.0, None ) )
+
+	def broken():
+		raise RuntimeError( "no ensemble data" )
+	monkeypatch.setattr( live, "build_outlook", broken )
+	assert live.cached_outlook() == { "days": [ 1 ] }

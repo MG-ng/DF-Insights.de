@@ -14,6 +14,10 @@
     .df-table { font-size: 0.9rem; }
     .df-table-wrap { overflow-x: auto; }
     .df-note { color: #666; font-size: 0.9rem; }
+    .df-tiles { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
+    .df-tile { flex: 1 1 200px; border: 1px solid #ddd; border-radius: 8px; padding: 0.8rem 1rem; background: #fafafa; }
+    .df-tile-value { font-size: 1.8rem; font-weight: 600; }
+    .df-tile-label { color: #555; font-size: 0.9rem; }
 </style>
 
 <div class="content-section" id="dunkelflaute-outlook">
@@ -38,6 +42,7 @@
                 <option value="0.55">55%</option>
             </select>
         </div>
+        <div id="df-outlook-tiles" class="df-tiles"></div>
         <div id="df-outlook-chart" class="df-chart"></div>
         <p id="df-outlook-summary">Loading the weather ensembles…</p>
         <details>
@@ -98,7 +103,11 @@
                 extrapolated) follows the growing fleet without needing a plant register.</li>
             <li><b>Many weathers, one answer.</b> Every ensemble member gives a renewable share per day. Each gets the
                 energy model's own error (measured on held-out years), and the average over all members is the probability.
-                Beyond day 10 the probability is gently blended towards climatology, because ensemble skill fades there.</li>
+                After day 7 the probability is gradually blended towards climatology (up to 35% weight), because
+                skill fades there: in the backtest a single forecast run had no skill left at 6 to 7 days.</li>
+            <li><b>Runs of calm days.</b> Because each ensemble member is one consistent weather scenario, the chance
+                of several Dunkelflaute days in a row is counted member by member (with the model error added as
+                day-to-day correlated noise) instead of being guessed from single-day probabilities.</li>
             <li><b>Honest scores.</b> Every number above comes from data that was not used for fitting.</li>
         </ol>
         <p class="df-note">

@@ -72,6 +72,12 @@ function renderOutlook() {
     const worst = days.reduce((a, b) => (b.probability[threshold] > a.probability[threshold] ? b : a), days[0])
     const risky = days.filter(d => d.probability[threshold] >= 0.5)
     const members = outlook.ensembles.map(e => `${e.name} (${e.members})`).join(', ')
+    const events = outlook.events?.by_threshold?.[threshold]
+    document.getElementById('df-outlook-tiles').innerHTML = events ? [
+        [percent(events.next_7_days), `chance of ${outlook.events.min_days}+ Dunkelflaute days in a row within 7 days`],
+        [percent(events.whole_outlook), `chance of ${outlook.events.min_days}+ Dunkelflaute days in a row within ${outlook.events.days} days`],
+        [events.expected_days.toFixed(1), `Dunkelflaute days expected in the next ${outlook.events.days} days`],
+    ].map(([value, label]) => `<div class="df-tile"><div class="df-tile-value">${value}</div><div class="df-tile-label">${label}</div></div>`).join('') : ''
     document.getElementById('df-outlook-summary').innerHTML =
         `Highest risk: <b>${weekday(worst.date)}</b> with <b>${percent(worst.probability[threshold])}</b>. ` +
         `${risky.length ? `${risky.length} of ${days.length} days are more likely than not to be Dunkelflaute days.` :

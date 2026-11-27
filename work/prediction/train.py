@@ -39,6 +39,9 @@ TEST_START = pd.Timestamp( "2023-01-01" )
 CALIBRATION_END = pd.Timestamp( "2024-12-31" )  # forecasts: calibrate on 2024, score on 2025+
 THRESHOLDS = [ 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55 ]
 MAIN_THRESHOLD = 0.35
+# A linear recalibration of the forecast share (a + b * logit) was tried: it pulls calm days towards the mean
+# and lowered the skill at 1-5 days, so only the probabilities are calibrated (logistic, see below).
+RECALIBRATE = False
 N_REGIMES = 7
 RIDGE = { "wind_on": 1.0, "wind_off": 1.0, "pv": 1.0, "load": 0.1 }
 
@@ -163,6 +166,23 @@ def reliability( p, y, bins = ( 0, 0.05, 0.15, 0.3, 0.5, 0.7, 0.85, 0.95, 1.0001
 			rows.append( { "forecast": round( float( p[ m ].mean() ), 3 ), "observed": round( float( y[ m ].mean() ), 3 ),
 						   "n": int( m.sum() ) } )
 	return rows
+
+
+def fit_logistic( z, y, iterations = 50 ):
+	"""Two-parameter logistic regression (Newton steps), returns (alpha, beta)."""
+	x = np.column_stack( [ np.ones_like( z ), z ] )
+	w = np.array( [ 0.0, 1.0 ] )
+	for _ in range( iterations ):
+		p = 1 / ( 1 + np.exp( -( x @ w ) ) )
+		gradient = x.T @ ( y - p )
+		hessian = x.T @ ( x * ( p * ( 1 - p ) )[ :, None ] ) + 1e-6 * np.eye( 2 )
+		w = w + np.linalg.solve( hessian, gradient )
+	return float( w[ 0 ] ), float( w[ 1 ] )
+
+
+def calibrated_probability( corrected_logit, threshold, params ):
+	z = ( logit( threshold ) - corrected_logit ) / params[ "sigma" ]
+	return 1 / ( 1 + np.exp( -( params[ "alpha" ] + params[ "beta" ] * z ) ) )
 
 
 # ------------------------------------------------------------------------------- weather regimes
@@ -296,7 +316,12 @@ def main():
 	err_logit = logit( actual[ "re_share" ] ) - logit( era5[ "re_share" ] )
 	relevant = np.minimum( actual[ "re_share" ], era5[ "re_share" ] ).to_numpy() < 0.75
 	sigma_model = float( np.std( err_logit[ ( test_days <= CALIBRATION_END ) & relevant ] ) )
-	model[ "error" ] = { "sigma_model_logit": sigma_model }
+	cal_days = np.asarray( test_days <= CALIBRATION_END )
+	era5_logit = logit( era5[ "re_share" ] )
+	z_cal = np.concatenate( [ ( logit( t ) - era5_logit[ cal_days ] ) / sigma_model for t in THRESHOLDS ] )
+	y_cal = np.concatenate( [ ( actual[ "re_share" ].to_numpy()[ cal_days ] <= t ) for t in THRESHOLDS ] )
+	alpha0, beta0 = fit_logistic( z_cal, y_cal )
+	model[ "error" ] = { "sigma_model_logit": sigma_model, "alpha": alpha0, "beta": beta0 }
 	component_skill = {}
 	for component in COMPONENTS + ( "load", "re_share" ):
 		a, p = actual[ component ], era5[ component ]
@@ -342,7 +367,7 @@ def main():
 	era5_probabilities = {}
 	for threshold in THRESHOLDS:
 		y = ( actual[ "re_share" ] <= threshold ).to_numpy()
-		p = probability_below( era5[ "re_share" ], threshold, sigma_model )
+		p = calibrated_probability( era5_logit, threshold, model[ "error" ] | { "sigma": sigma_model } )
 		clim = np.array( [ clim_prob( t, i, threshold ) for t, i in zip( test_days, issue ) ] )
 		mask = test_days > CALIBRATION_END
 		era5_probabilities[ threshold ] = {
@@ -379,10 +404,15 @@ def main():
 			obs = targets.loc[ target_days ]
 			cal_mask = target_days <= CALIBRATION_END
 			lp, lo = logit( pred[ "re_share" ] ), logit( obs[ "re_share" ] )
-			b, a = np.polyfit( lp[ cal_mask ], lo[ cal_mask ], 1 )  # recalibration of NWP-driven share
+			b, a = np.polyfit( lp[ cal_mask ], lo[ cal_mask ], 1 ) if RECALIBRATE else ( 1.0, 0.0 )
 			corrected = a + b * lp
 			sigma = float( np.std( lo[ cal_mask ] - corrected[ cal_mask ] ) )
-			calib[ int( lead ) ] = { "a": float( a ), "b": float( b ), "sigma": sigma }
+			# logistic calibration of the probabilities, shared by all thresholds (more events to fit on):
+			# P = sigmoid( alpha + beta * (logit(threshold) - corrected) / sigma )
+			z_cal = np.concatenate( [ ( logit( t ) - corrected[ cal_mask ] ) / sigma for t in THRESHOLDS ] )
+			y_cal = np.concatenate( [ ( obs[ "re_share" ][ cal_mask ] <= t ).to_numpy() for t in THRESHOLDS ] )
+			alpha, beta = fit_logistic( z_cal, y_cal )
+			calib[ int( lead ) ] = { "a": float( a ), "b": float( b ), "sigma": sigma, "alpha": alpha, "beta": beta }
 			eval_mask = ~cal_mask
 			share_pred = 1 / ( 1 + np.exp( -corrected ) )
 			row = { "lead": int( lead ), "days": int( eval_mask.sum() ),
@@ -390,17 +420,18 @@ def main():
 					"sigma_logit": round( sigma, 3 ), "thresholds": {} }
 			for threshold in THRESHOLDS:
 				y = ( obs[ "re_share" ] <= threshold ).to_numpy()[ eval_mask ]
-				p = probability_below( share_pred, threshold, sigma )[ eval_mask ]
+				p = calibrated_probability( corrected, threshold, calib[ int( lead ) ] )[ eval_mask ]
+				p_gauss = probability_below( share_pred, threshold, sigma )[ eval_mask ]
 				clim = np.array( [ clim_prob( t, i, threshold ) for t, i in zip( target_days[ eval_mask ], iss[ eval_mask ] ) ] )
-				prev = obs[ "re_share" ].shift( 0 )  # placeholder for alignment
 				last_obs = targets[ "re_share" ].reindex( iss[ eval_mask ] - pd.Timedelta( days = 1 ) ).to_numpy()
-				# probabilistic persistence: P(event | last observed day was / was not an event), from training years
-				tr = targets.loc[ targets.index <= TRAIN_END, "re_share" ]
+				# probabilistic persistence: P(event | last observed day was / was not an event), from 2023 and 2024 (recent fleet)
+				tr = targets.loc[ ( targets.index >= TEST_START ) & ( targets.index <= CALIBRATION_END ), "re_share" ]
 				now_ev, later_ev = ( tr <= threshold ), ( tr.shift( -( int( lead ) + 1 ) ) <= threshold )
 				p_if = float( later_ev[ now_ev ].mean() ) if now_ev.any() else 0.0
 				p_ifnot = float( later_ev[ ~now_ev ].mean() )
 				persistence = np.where( last_obs <= threshold, p_if, p_ifnot )
-				entry = { "model": scores( p, y, clim ), "climatology": scores( clim, y, clim ),
+				entry = { "model": scores( p, y, clim ), "model_gaussian": scores( p_gauss, y, clim ),
+						  "climatology": scores( clim, y, clim ),
 						  "persistence": scores( persistence, y, clim ) }
 				if int( lead ) == 1:
 					tso_days = target_days[ eval_mask ].intersection( tso.index )
@@ -412,7 +443,6 @@ def main():
 				if threshold == MAIN_THRESHOLD:
 					entry[ "reliability" ] = reliability( p, y )
 				row[ "thresholds" ][ str( threshold ) ] = entry
-				del prev
 			lead_scores.append( row )
 			if int( lead ) in ( 1, 3, 5, 7 ):
 				forecast_series.append( { "lead": int( lead ), "dates": [ str( d.date() ) for d in target_days[ eval_mask ] ],
@@ -461,7 +491,6 @@ def main():
 		long_range = []
 		t = MAIN_THRESHOLD
 		event = ( share_now <= t ).astype( float )
-		tr_mask = common <= TRAIN_END
 		for lead in ( 1, 2, 3, 5, 7, 10, 14, 21, 28 ):
 			future = event.shift( -lead )
 			df = pd.DataFrame( { "regime": lab, "month": common.month, "future": future } ).dropna()
@@ -475,7 +504,6 @@ def main():
 			c = month_clim.reindex( test_part[ "month" ] ).to_numpy()
 			ok = ~np.isnan( p ) & ~np.isnan( c )
 			long_range.append( { "lead": lead, **scores( p[ ok ], test_part[ "future" ].to_numpy()[ ok ], c[ ok ] ) } )
-		del tr_mask
 		backtest[ "regimes" ] = { "table": regime_table, "long_range": long_range,
 								  "grid": { "lats": [ 35, 42, 49, 56, 63, 70 ], "lons": [ -30, -20, -10, 0, 10, 20, 30 ] } }
 		# conditional climatology used live beyond the ensemble range

@@ -10,18 +10,24 @@ so both weather uncertainty (member spread) and energy-model error are included.
 sea level pressure is also sorted into the 7 weather regimes, giving regime probabilities per day.
 
 Open-Meteo's free tier is metered per location, variable and member, so results are cached for
-3 hours (in memory, per process).
+3 hours in a file in the temp directory, shared by all web server workers. If a refresh fails,
+the last result is served for up to a day.
 """
 import datetime as dt
+import json
+import os
+import tempfile
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import requests
 
 from prediction.features import MSLP_GRID, POINTS, hourly_to_daily_features
-from prediction.model import load_model, logit, normal_cdf, predict_components
+from prediction.model import load_model, logit, predict_components
 
 ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
 TZ = "Europe/Berlin"
@@ -33,6 +39,9 @@ ENSEMBLES = {
 REGIME_MODEL = "ecmwf_ifs025"
 CACHE_SECONDS = 3 * 3600
 FORECAST_DAYS = 15
+
+STALE_SECONDS = 24 * 3600
+CACHE_FILE = Path( os.getenv( "DF_OUTLOOK_CACHE", Path( tempfile.gettempdir() ) / "df-insights-outlook.json" ) )
 
 _cache = { "time": 0.0, "value": None }
 _lock = threading.Lock()
@@ -122,28 +131,37 @@ def classify_regimes( model, regime_params ):
 	return labels
 
 
-def calibrate( model, lead_days, shares ):
-	"""Per-lead linear recalibration of the logit share, fitted on archived forecasts (train.py)."""
-	calibration = model.get( "forecast_calibration" ) or {}
-	if not calibration:
-		return shares, None
-	leads = sorted( int( k ) for k in calibration )
-	key = str( min( max( lead_days, leads[ 0 ] ), leads[ -1 ] ) )
-	params = calibration[ key ]
-	corrected = params[ "a" ] + params[ "b" ] * logit( shares )
-	return 1 / ( 1 + np.exp( -corrected ) ), params[ "sigma" ]
+def member_probability( model, shares, threshold ):
+	"""P(Dunkelflaute) for each member's predicted share: the energy model's own error, as a logistic curve
+	calibrated on held-out ERA5 years (train.py). The weather uncertainty comes from the member spread."""
+	error = model[ "error" ]
+	z = ( logit( threshold ) - logit( shares ) ) / error[ "sigma_model_logit" ]
+	return 1 / ( 1 + np.exp( -( error.get( "alpha", 0.0 ) + error.get( "beta", 1.7 ) * z ) ) )
 
 
 def build_outlook( model = None ):
 	model = model or load_model()
 	today = pd.Timestamp( dt.datetime.now( dt.timezone.utc ) ).tz_convert( TZ ).normalize().tz_localize( None )
 	shares, components, used = {}, {}, []
-	for key, label in ENSEMBLES.items():
+
+	def fetch( key ):
 		try:
-			members = fetch_members( key )
+			return fetch_members( key )
 		except ( requests.RequestException, ValueError, KeyError ) as error:
 			print( f"Dunkelflaute outlook: {key} failed: {error!r}" )
-			continue
+			return None
+
+	regime_labels = None
+	with ThreadPoolExecutor( len( ENSEMBLES ) + 1 ) as pool:
+		regime_future = pool.submit( classify_regimes, REGIME_MODEL, model[ "regimes" ] ) if model.get( "regimes" ) else None
+		results = dict( zip( ENSEMBLES, pool.map( fetch, ENSEMBLES ) ) )
+		if regime_future is not None:
+			try:
+				regime_labels = regime_future.result()
+			except ( requests.RequestException, ValueError, KeyError ) as error:
+				print( f"Dunkelflaute outlook: regimes failed: {error!r}" )
+	for key, label in ENSEMBLES.items():
+		members = results[ key ]
 		if not members:
 			continue
 		used.append( { "id": key, "name": label, "members": len( members ) } )
@@ -163,16 +181,13 @@ def build_outlook( model = None ):
 	for date, row in table.iterrows():
 		values = row.dropna().to_numpy()
 		lead = int( ( date - today ).days )
-		calibrated, sigma_lead = calibrate( model, max( lead, 1 ), values )
-		# member spread already carries the weather uncertainty, so each member gets only the model error;
-		# use the larger of that and the remaining (non-weather) part of the archived-forecast error
-		sigma = sigma_model
+		calibrated = values
 		probabilities = {}
 		for threshold in model[ "thresholds" ]:
-			p = float( np.mean( normal_cdf( ( logit( threshold ) - logit( calibrated ) ) / sigma ) ) )
+			p = float( np.mean( member_probability( model, calibrated, threshold ) ) )
 			clim = month_clim.get( str( threshold ) )
-			if clim and lead > 10:  # beyond ~10 days ensemble skill fades: blend towards climatology
-				weight = min( 0.3, 0.06 * ( lead - 10 ) )
+			if clim and lead > 7:  # skill fades after about a week (see the backtest): blend towards climatology
+				weight = min( 0.35, 0.05 * ( lead - 7 ) )
 				p = ( 1 - weight ) * p + weight * clim[ date.month - 1 ]
 			probabilities[ str( threshold ) ] = round( p, 3 )
 		member_frames = [ components[ k ].loc[ date ] for k in row.dropna().index ]
@@ -184,33 +199,98 @@ def build_outlook( model = None ):
 					   for q, v in ( ( "p10", 0.1 ), ( "p25", 0.25 ), ( "p50", 0.5 ), ( "p75", 0.75 ), ( "p90", 0.9 ) ) },
 			"gwh": { c: round( float( mean_components[ c ] ) / 1000, 1 )
 					 for c in ( "wind_on", "wind_off", "pv", "other_re", "load" ) },
-			"sigma_lead": None if sigma_lead is None else round( sigma_lead, 3 ),
 		} )
 
 	regimes = None
-	if model.get( "regimes" ):
-		try:
-			labels = classify_regimes( REGIME_MODEL, model[ "regimes" ] )
-			frame = pd.DataFrame( labels )
-			frame = frame[ frame.index >= today ]
-			n = len( model[ "regimes" ][ "names" ] )
-			regimes = {
-				"names": model[ "regimes" ][ "names" ],
-				"days": [ { "date": str( d.date() ),
-							"probabilities": [ round( float( ( r.dropna() == k ).mean() ), 3 ) for k in range( n ) ] }
-						  for d, r in frame.iterrows() ],
-			}
-		except ( requests.RequestException, ValueError, KeyError ) as error:
-			print( f"Dunkelflaute outlook: regimes failed: {error!r}" )
+	if regime_labels:
+		frame = pd.DataFrame( regime_labels )
+		frame = frame[ frame.index >= today ]
+		n = len( model[ "regimes" ][ "names" ] )
+		regimes = {
+			"names": model[ "regimes" ][ "names" ],
+			"days": [ { "date": str( d.date() ),
+						"probabilities": [ round( float( ( r.dropna() == k ).mean() ), 3 ) for k in range( n ) ] }
+					  for d, r in frame.iterrows() ],
+		}
 	return {
+		"events": multi_day_events( model, table, today,
+									sigma_model / model[ "error" ].get( "beta", 1.7 ) * 1.7 ),  # logistic -> normal scale
 		"issued": dt.datetime.now( dt.timezone.utc ).isoformat( timespec = "minutes" ),
 		"ensembles": used, "thresholds": model[ "thresholds" ], "days": days, "regimes": regimes,
 	}
 
 
+def _read_cache_file():
+	try:
+		with open( CACHE_FILE ) as handle:
+			stored = json.load( handle )
+		return stored[ "time" ], stored[ "value" ]
+	except ( OSError, ValueError, KeyError ):
+		return 0.0, None
+
+
+def _write_cache_file( stamp, value ):
+	try:
+		temporary = CACHE_FILE.with_suffix( f".{os.getpid()}.tmp" )
+		with open( temporary, "w" ) as handle:
+			json.dump( { "time": stamp, "value": value }, handle )
+		os.replace( temporary, CACHE_FILE )
+	except OSError as error:  # read-only file system: the in-memory cache still works
+		print( f"Dunkelflaute outlook: cache not written: {error!r}" )
+
+
+def multi_day_events( model, table, today, sigma, draws = 40, rho = 0.6, min_days = 2, seed = 7 ):
+	"""P(at least `min_days` Dunkelflaute days in a row) in the coming week and the whole outlook.
+
+	Ensembles keep each scenario consistent over time, so runs of calm days can be counted per member,
+	which a day-by-day probability cannot tell. The energy model's error is added as AR(1) noise
+	(correlated from day to day), sampled `draws` times per member."""
+	rng = np.random.default_rng( seed )
+	complete = table.dropna( axis = 1 )
+	if complete.empty:
+		return None
+	leads = np.array( [ ( d - today ).days for d in complete.index ] )
+	columns = complete.to_numpy().T  # members x days
+	logits = logit( columns )
+	noise = np.empty( ( draws, ) + logits.shape )
+	noise[ ..., 0 ] = rng.standard_normal( noise.shape[ :-1 ] )
+	for day in range( 1, logits.shape[ 1 ] ):
+		noise[ ..., day ] = rho * noise[ ..., day - 1 ] + np.sqrt( 1 - rho ** 2 ) * rng.standard_normal( noise.shape[ :-1 ] )
+	samples = logits[ None ] + sigma * noise  # draws x members x days
+	result = {}
+	for threshold in model[ "thresholds" ]:
+		below = samples <= logit( threshold )
+		run = np.zeros( below.shape[ :-1 ], dtype = int )
+		longest = np.zeros_like( run )
+		week_longest = np.zeros_like( run )
+		for day in range( below.shape[ -1 ] ):
+			run = np.where( below[ ..., day ], run + 1, 0 )
+			longest = np.maximum( longest, run )
+			if leads[ day ] <= 7:
+				week_longest = np.maximum( week_longest, run )
+		result[ str( threshold ) ] = {
+			"next_7_days": round( float( ( week_longest >= min_days ).mean() ), 3 ),
+			"whole_outlook": round( float( ( longest >= min_days ).mean() ), 3 ),
+			"expected_days": round( float( below.sum( -1 ).mean() ), 1 ),
+		}
+	return { "min_days": min_days, "days": int( len( leads ) ), "by_threshold": result }
+
+
 def cached_outlook():
+	"""The outlook, rebuilt at most every 3 hours; on failure the last good one (up to a day old)."""
 	with _lock:
 		if _cache[ "value" ] is None or time.time() - _cache[ "time" ] > CACHE_SECONDS:
-			_cache[ "value" ] = build_outlook()
-			_cache[ "time" ] = time.time()
-		return _cache[ "value" ]
+			stamp, value = _read_cache_file()  # another worker may have refreshed it
+			if value is not None and stamp > _cache[ "time" ]:
+				_cache.update( time = stamp, value = value )
+		if _cache[ "value" ] is not None and time.time() - _cache[ "time" ] <= CACHE_SECONDS:
+			return _cache[ "value" ]
+		try:
+			value = build_outlook()
+		except ( requests.RequestException, RuntimeError, ValueError, KeyError ):
+			if _cache[ "value" ] is not None and time.time() - _cache[ "time" ] <= STALE_SECONDS:
+				return _cache[ "value" ]
+			raise
+		_cache.update( time = time.time(), value = value )
+		_write_cache_file( _cache[ "time" ], value )
+		return value
