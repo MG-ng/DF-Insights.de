@@ -1,0 +1,15 @@
+# Runs df-insights-update.service four times a day. 12:15 UTC comes shortly
+# after the day-ahead auction results (published around 12:45 Berlin time)
+# reach SMARD.
+# Install: see "Automatic data updates" in .github/deploy/SETUP.md
+[Unit]
+Description=DF Insights: fetch the newest data four times a day
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:15:00 UTC
+RandomizedDelaySec=5min
+# Catch up after the server was off at the scheduled time
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -9,6 +9,8 @@ modules.xml
 .db-pass.txt
 *.cache.sqlite
 /work/.cache/
+/work/static/data*.h5
+/work/static/.data*.h5.tmp
 .env
 .env.*
 !.env.example
