@@ -9,7 +9,23 @@ from psqlDatabase.viewsSQL import dunkelflauten_stats_view_sql, re_share_import_
 	historical_weather_agg_view_sql, historical_weather_forecasts_agg_view_sql
 
 
-def create_computed_view( connection_params, computed_view_name, view_sql ):
+def _has_unique_index( cursor, view_name ):
+    cursor.execute( """
+        SELECT EXISTS (
+            SELECT 1
+            FROM pg_index idx
+            JOIN pg_class relation ON relation.oid = idx.indrelid
+            JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+            WHERE namespace.nspname = current_schema()
+              AND relation.relname = %s
+              AND idx.indisunique
+              AND idx.indpred IS NULL
+        );
+    """, (view_name,) )
+    return cursor.fetchone()[0]
+
+
+def create_computed_view( connection_params, computed_view_name, view_sql, concurrently = False ):
     """
     Creates the computed view, assuming smard_data_collection is already populated and filled
 
@@ -17,6 +33,9 @@ def create_computed_view( connection_params, computed_view_name, view_sql ):
         connection_params (dict): Database connection parameters
         computed_view_name (str): Name of the materialized view
         view_sql (str): Query used to populate the materialized view
+        concurrently (bool): Refresh an existing view with REFRESH ... CONCURRENTLY, so the website
+            can keep reading it during the refresh. Needs the unique index created below; without it
+            the plain (locking) refresh is used.
 
     Returns:
         bool: True if creation or refresh was successful, False otherwise
@@ -39,7 +58,9 @@ def create_computed_view( connection_params, computed_view_name, view_sql ):
         view_exists = cursor.fetchone()[0]
 
         if view_exists:
-            refresh_view_sql = sql.SQL( "REFRESH MATERIALIZED VIEW {view};" ).format(
+            refresh_concurrently = concurrently and _has_unique_index( cursor, computed_view_name )
+            refresh_view_sql = sql.SQL( "REFRESH MATERIALIZED VIEW {concurrently}{view};" ).format(
+                concurrently = sql.SQL( "CONCURRENTLY " if refresh_concurrently else "" ),
                 view = sql.Identifier( computed_view_name )
             )
             print( refresh_view_sql.as_string( conn ) )
@@ -117,29 +138,34 @@ def create_computed_view( connection_params, computed_view_name, view_sql ):
 
 
 
-if __name__ == "__main__":
+DUNKELFLAUTEN_THRESHOLDS = [ 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55 ]
 
-    for view_name, sql in [(VIEW_NAME_RE_SHARE_EXT_TRADE, re_share_import_view_sql),
-                           [VIEW_NAME_PRICE_CHANGE, price_change_view_sql],
-                           [VIEW_NAME_WEATHER_FORECASTS_AGG, historical_weather_forecasts_agg_view_sql],
-                           [VIEW_NAME_HISTORICAL_WEATHER_AGG, historical_weather_agg_view_sql],
-                           [VIEW_NAME_DUNKELFLAUTEN_STATS, None]]:  # important ordering: stats should use weather_agg
 
-        if sql is None:
-            if view_name == VIEW_NAME_DUNKELFLAUTEN_STATS:
-                for threshold in [ 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55 ]:
+def computed_views():
+    """(view name, SQL) in build order: the Dunkelflauten stats read the weather aggregates."""
+    views = [
+        (VIEW_NAME_RE_SHARE_EXT_TRADE, re_share_import_view_sql),
+        (VIEW_NAME_PRICE_CHANGE, price_change_view_sql),
+        (VIEW_NAME_WEATHER_FORECASTS_AGG, historical_weather_forecasts_agg_view_sql),
+        (VIEW_NAME_HISTORICAL_WEATHER_AGG, historical_weather_agg_view_sql),
+    ]
+    for threshold in DUNKELFLAUTEN_THRESHOLDS:
+        views.append( (VIEW_NAME_DUNKELFLAUTEN_STATS + str( int( round( threshold * 100 ) ) ),
+                       dunkelflauten_stats_view_sql( threshold )) )
+    return views
 
-                    sql = dunkelflauten_stats_view_sql(threshold)
-                    currentViewName = view_name + str(int(round( threshold*100 )))
-                    if create_computed_view( DB_PARAMS, currentViewName, sql ):
-                        print( f"{currentViewName} creation completed successfully!" )
-                    else:
-                        print( f"View {currentViewName} creation failed!" )
-                        sys.exit( 1 )
 
+def create_or_refresh_all_views( connection_params, concurrently = False ):
+    """Create missing views and refresh existing ones. Stops at the first failure and returns False."""
+    for view_name, view_sql in computed_views():
+        if create_computed_view( connection_params, view_name, view_sql, concurrently ):
+            print( f"{view_name} creation completed successfully!" )
         else:
-            if create_computed_view( DB_PARAMS, view_name, sql ):
-                print( f"{view_name} creation completed successfully!" )
-            else:
-                print( "View creation failed!" )
-                sys.exit( 1 )
+            print( f"View {view_name} creation failed!" )
+            return False
+    return True
+
+
+if __name__ == "__main__":
+    if not create_or_refresh_all_views( DB_PARAMS ):
+        sys.exit( 1 )

@@ -25,6 +25,8 @@ work/
   app.py                  Flask app and HTTP routes
   config.py               Reads .env (database and server settings)
   databaseSetupAll.py     Runs the full database setup, step by step
+  updateDatabase.py       Fetches only the newest data and refreshes the views (run on a timer)
+  exportColabData.py      Writes static/data.h5 for the Colab notebook (called by updateDatabase.py)
   computedViews.py        Builds the materialized views used by the website
   Helper.py               Filters, regions and resolutions shared by app and imports
   psqlDatabase/           Schema creation, SMARD/Open-Meteo import and SQL queries
@@ -34,7 +36,7 @@ work/
   tests/                  Exploration scripts and experiments (with their own requirements.txt)
   tests/automated/        Automated test suite (pytest)
 .github/workflows/        CI checks, approval-gated deploy and the nightly production check
-.github/deploy/           Server deploy script and its one-time setup (SETUP.md)
+.github/deploy/           Server deploy script, data-update timer and their one-time setup (SETUP.md)
 ```
 
 ## Requirements
@@ -139,6 +141,31 @@ Notes:
   sudo chown -R "$USER":"$(id -gn)" work/.cache
   .venv/bin/python -u work/databaseSetupAll.py --start-at forecast-weather
   ```
+
+### 5. Keep the data up to date
+
+After the first setup there is no need to rebuild the database for new data.
+`work/updateDatabase.py` fetches only what is new since the last run and
+refreshes the materialized views:
+
+```shell
+.venv/bin/python -u work/updateDatabase.py                      # everything
+.venv/bin/python -u work/updateDatabase.py --only smard          # one source: smard, weather or forecast
+.venv/bin/python -u work/updateDatabase.py --since 2026-06-01    # refetch from this UTC date on
+```
+
+| Source   | What it fetches again                                                                 |
+|----------|---------------------------------------------------------------------------------------|
+| smard    | Per filter and resolution, the SMARD bucket with the newest stored value, all newer ones and one older one (SMARD revises recent values) |
+| weather  | Historical Open-Meteo weather from three days before the newest complete hour up to today |
+| forecast | Previous-run forecasts per model from four days before the newest stored hour up to today |
+| export   | Writes `work/static/data.h5` (and `data-<model>.h5`) for the Colab notebook, hourly from 2024 on (`work/exportColabData.py`) |
+
+Values are upserted or their time range is replaced, so running it twice changes
+nothing. Views are refreshed `CONCURRENTLY`, so the website keeps working; pass
+`--skip-views` to leave them alone, or `--skip-export` to skip the `.h5` files. Only one update runs per database at a time.
+On the server a systemd timer runs it four times a day, see
+[Automatic data updates](.github/deploy/SETUP.md#automatic-data-updates).
 
 ## Running the app
 

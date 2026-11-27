@@ -160,6 +160,59 @@ Once the deploy worked:
 - Remove the old sudo rule for `ubuntu` from `/etc/sudoers.d/df-insights-deploy`
   if you had added one; the file should only contain the `deploy` line.
 
+## Automatic data updates
+
+`work/updateDatabase.py` fetches only what is new since its last run (SMARD
+power data, Open-Meteo weather and previous-run forecasts) and refreshes the
+materialized views with `REFRESH ... CONCURRENTLY`, so the website keeps
+answering during the refresh. Then it writes the Colab datasets
+`work/static/data.h5` and `work/static/data-<model>.h5`, served at
+https://df-insights.de/static/data.h5. They are untracked, so deploys keep them. It needs a database that `databaseSetupAll.py`
+has set up once. A systemd timer runs it four times a day (00:15, 06:15, 12:15
+and 18:15 UTC) as `deploy`, from the checkout, so a deploy also updates the job.
+
+Install it once (as `ubuntu`):
+
+```shell
+sudo -u deploy install -d -m 755 /srv/df-insights/work/.cache
+sudo install -m 644 /srv/df-insights/.github/deploy/df-insights-update.service /srv/df-insights/.github/deploy/df-insights-update.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start df-insights-update.service     # first run by hand; catches up everything since the last import
+journalctl -u df-insights-update.service -n 50      # should end with "Update completed"
+sudo systemctl enable --now df-insights-update.timer
+systemctl list-timers df-insights-update.timer      # shows the next run
+```
+
+The first run after a long pause catches up the whole gap and can take a while;
+later runs take a few minutes, mostly for the view refresh. If the app still runs
+from `/home/ubuntu/work`, point the unit at it with
+`sudo systemctl edit df-insights-update.service`:
+
+```ini
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/work
+ExecStart=
+ExecStart=/home/ubuntu/work/.venv/bin/python -u /home/ubuntu/work/work/updateDatabase.py
+ReadWritePaths=
+ReadWritePaths=-/home/ubuntu/work/work/.cache /home/ubuntu/work/work/static
+ProtectHome=false
+```
+
+Day to day:
+
+- **Logs:** `journalctl -u df-insights-update.service --since today`
+- **Update now:** `sudo systemctl start df-insights-update.service`
+- **Only rebuild data.h5:** `sudo -u deploy /srv/df-insights/.venv/bin/python -u /srv/df-insights/work/exportColabData.py`
+- **Refetch a period** (e.g. after SMARD corrected older data):
+  `sudo -u deploy /srv/df-insights/.venv/bin/python -u /srv/df-insights/work/updateDatabase.py --since 2026-06-01`
+- **Pause it** during a full rebuild with `databaseSetupAll.py`:
+  `sudo systemctl stop df-insights-update.timer`, and `start` it again afterwards.
+  Two updates never run at the same time; a second one exits right away.
+- If the units change in the repo, copy them again as above and run
+  `sudo systemctl daemon-reload`.
+
 ## New deploy key (only for a fresh setup or after a leak)
 
 ```shell

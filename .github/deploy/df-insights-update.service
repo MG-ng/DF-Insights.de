@@ -1,0 +1,29 @@
+# Fetches the newest SMARD and Open-Meteo data into PostgreSQL and refreshes the
+# materialized views (work/updateDatabase.py). Started by df-insights-update.timer.
+# Install: see "Automatic data updates" in .github/deploy/SETUP.md
+#
+# Paths match the /srv/df-insights layout of SETUP.md. For a different layout,
+# override them with `sudo systemctl edit df-insights-update.service`.
+[Unit]
+Description=DF Insights: fetch the newest SMARD and Open-Meteo data
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+WorkingDirectory=/srv/df-insights
+ExecStart=/srv/df-insights/.venv/bin/python -u /srv/df-insights/work/updateDatabase.py
+# Never let an import job slow down the website noticeably
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=2h
+# The job only writes its API cache and the exported datasets; everything else stays read-only
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=-/srv/df-insights/work/.cache
+# static/data.h5 and static/data-<model>.h5 for the Colab notebook (exportColabData.py)
+ReadWritePaths=/srv/df-insights/work/static
