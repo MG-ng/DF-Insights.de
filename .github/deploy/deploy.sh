@@ -81,12 +81,24 @@ restart_service 9>&-  # the lock must not leak into the app process
 # The footer shows "Version <short sha> <date>" (config.APP_VERSION, read from git).
 expected_version="$(git log -1 --format='%h %cs')"
 log "waiting for $HEALTH_URL to report version $expected_version"
+last_status="no response"
+seen_version="none"
 for attempt in $(seq 1 30); do
-	if page="$(curl -fsS --max-time 5 "$HEALTH_URL" 2>/dev/null)" && grep -qF "Version ${expected_version}" <<<"$page"; then
-		log "deployed $expected_version (attempt $attempt)"
-		trap - EXIT
-		exit 0
+	if page="$(curl -sS --max-time 5 -w '\n%{http_code}' "$HEALTH_URL" 2>&1)"; then
+		last_status="HTTP ${page##*$'\n'}"
+		seen_version="$(grep -oE 'Version [^<]*' <<<"$page" | head -1 | sed 's/^Version //')"
+		seen_version="${seen_version:-none}"
+		if [[ "$last_status" == "HTTP 200" && "$seen_version" == "$expected_version" ]]; then
+			log "deployed $expected_version (attempt $attempt)"
+			trap - EXIT
+			exit 0
+		fi
+	else
+		last_status="no response: $(head -1 <<<"${page#curl: }")"
 	fi
 	sleep 2
 done
+# Say what the app answered, so the GitHub log shows why the check failed
+log "last answer from $HEALTH_URL: ${last_status}, footer version: ${seen_version}"
+[[ "$seen_version" == "unknown" ]] && log "hint: the app could not read git. Does the $SERVICE service run as the owner of $APP_ROOT?"
 die "app did not come up with version $expected_version"
