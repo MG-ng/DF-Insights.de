@@ -48,6 +48,8 @@ DB_PARAMS = {
 APP_HOST = os.getenv("APP_HOST", "127.0.0.1")
 APP_PORT = _get_int("APP_PORT", 5000)
 APP_DEBUG = _get_bool("APP_DEBUG", False)
+# false: send the Content-Security-Policy only as Report-Only (violations show in the browser console)
+CSP_ENFORCE = _get_bool("CSP_ENFORCE", False)
 
 
 VERSION_FILE = PROJECT_ROOT / ".app-version"  # written by .github/deploy/deploy.sh, not tracked by git

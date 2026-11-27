@@ -58,3 +58,14 @@ def test_ohlc_rejects_invalid_input( client, query ):
 @pytest.mark.parametrize( "table", [ "smard_data_collection", "computed_data_dunkelflauten_enriched", "pg_user" ] )
 def test_enriched_df_rejects_unknown_tables( client, table ):
 	assert client.get( f"/enrichedDF?tableName={table}" ).status_code == 404
+
+
+@pytest.mark.parametrize( "path", [ "/", "/about", "/features" ] )
+def test_pages_send_a_content_security_policy( client, path ):
+	headers = client.get( path ).headers
+	policy = headers.get( "Content-Security-Policy" ) or headers.get( "Content-Security-Policy-Report-Only" )
+	assert policy, "pages must send a CSP header (enforced or report-only)"
+	assert "default-src 'self'" in policy
+	assert "frame-ancestors 'none'" in policy
+	assert "object-src 'none'" in policy
+

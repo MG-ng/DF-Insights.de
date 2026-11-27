@@ -5,7 +5,7 @@ from math import log
 import requests
 from flask import Flask, render_template, request, send_from_directory
 
-from config import APP_DEBUG, APP_HOST, APP_PORT, APP_VERSION
+from config import APP_DEBUG, APP_HOST, APP_PORT, APP_VERSION, CSP_ENFORCE
 from Helper import REGION_LIST, FILTER, FilterTranslations, FLAG, Resolution, unix_time_duration
 # These imports crash if app.py is in a separate folder, not seeing psqlDatabase/
 from psqlDatabase.QueryComplex import get_timeseries, get_daily_price_ohlc
@@ -20,6 +20,33 @@ app = Flask(__name__)
 @app.context_processor
 def inject_app_version():
 	return {'app_version': APP_VERSION}
+
+
+# Content Security Policy: only this site's own files, plus the two embedded iframes
+# (Ventusky weather map, Google Slides) and the Website Carbon badge API.
+# 'unsafe-inline' is still needed for the inline <script> blocks and onclick handlers
+# in index.html and prediction.html; moving those into static/js would allow dropping it.
+CONTENT_SECURITY_POLICY = "; ".join( [
+	"default-src 'self'",
+	"script-src 'self' 'unsafe-inline'",
+	"style-src 'self' 'unsafe-inline'",
+	"img-src 'self' data: blob:",
+	"font-src 'self' data:",
+	"connect-src 'self' https://api.websitecarbon.com",
+	"frame-src https://embed.ventusky.com https://docs.google.com",
+	"object-src 'none'",
+	"base-uri 'self'",
+	"form-action 'self'",
+	"frame-ancestors 'none'",
+] )
+CSP_HEADER = "Content-Security-Policy" if CSP_ENFORCE else "Content-Security-Policy-Report-Only"
+
+
+@app.after_request
+def set_content_security_policy( response ):
+	if response.mimetype == "text/html":
+		response.headers.setdefault( CSP_HEADER, CONTENT_SECURITY_POLICY )
+	return response
 
 @app.route('/')
 def index():
